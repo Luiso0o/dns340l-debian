@@ -40,6 +40,14 @@ NAND (flash)                         Discos (4 × WD Red 4 TB, GPT idéntica)
   Si no lo encuentra, o si hay una memoria USB FAT con un fichero `RESCATE`, entra en **modo rescate**
   (Telnet, web de diagnóstico, IP 192.168.1.250, `mdadm`, `mke2fs`).
 
+## Próximos pasos
+
+* Probar el núcleo y el arranque v2 con la consola serie y grabarlos.
+* **Núcleo en el disco, como en un PC**: dejar en la flash un núcleo y un arranque mínimos que monten el
+  RAID 1 y salten con `kexec` al núcleo de `/boot`. Así las actualizaciones del núcleo no tocarían la flash.
+* Alimentación del USB 3.0 (Etron), LED y botón de encendido.
+* Publicar `uImage` y `uInitrd` como *release*, con su código fuente.
+
 ## Guía rápida
 
 1. **Copia de seguridad** de toda la flash desde el firmware de D-Link → [docs/instalacion.md](docs/instalacion.md#1-copia-de-seguridad)
