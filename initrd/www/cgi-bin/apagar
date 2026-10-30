@@ -1,0 +1,6 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+echo "Content-type: text/plain; charset=utf-8"; echo
+echo "Apagando..."
+sync
+( sleep 2; printf '\372\003\003\001\001\001\373' > /dev/ttyS1 ) &

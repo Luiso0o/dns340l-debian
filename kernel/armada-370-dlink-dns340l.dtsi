@@ -1,0 +1,164 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Árbol de dispositivos para el D-Link ShareCenter DNS-340L (rev. A1).
+ * Basado en armada-370-dlink-dns327l.dts y en el análisis del firmware 1.08b01.
+ *
+ *   - Marvell Armada 370 (88F6707) a 1,2 GHz, 512 MiB DDR3
+ *   - PCIe: Etron EJ168 (xHCI, 1b6f:7023) y Marvell 88SE9215 (AHCI 4 puertos, 1b4b:9215)
+ *   - 2 x GbE (mvneta) con PHY Marvell 88E1510 en las direcciones 0 y 1
+ *   - UART0 = consola, UART1 = microcontrolador Weltrend WT6701 (ventilador, botón, reloj)
+ *   - NAND Hynix 256 MiB, BCH 4 bits, particiones como el firmware de D-Link
+ *
+ * No se modifica el pinmux: se respeta el que deja U-Boot.
+ * Pendiente: alimentación del Etron EJ168, LED (GPIO 50, 51, 57-59), botones.
+ */
+
+/dts-v1/;
+
+#include "armada-370.dtsi"
+
+/ {
+	model = "D-Link DNS-340L";
+	compatible = "dlink,dns340l", "marvell,armada370", "marvell,armada-370-xp";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+		bootargs = "console=ttyS0,115200 loglevel=4 rdinit=/init";
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x00000000 0x20000000>; /* 512 MiB */
+	};
+
+	soc {
+		ranges = <MBUS_ID(0xf0, 0x01) 0 DNS340L_REGS_BASE 0x100000
+			  MBUS_ID(0x01, 0xe0) 0 0xfff00000 0x100000
+			  MBUS_ID(0x09, 0x01) 0 0xf1100000 0x10000>;
+
+		internal-regs {
+			/* Puertos USB 2.0 internos del Armada (U-Boot lee el USB por aquí) */
+			usb@50000 {
+				status = "okay";
+			};
+
+			usb@51000 {
+				status = "okay";
+			};
+		};
+	};
+};
+
+/* Etron EJ168 (USB 3.0) y Marvell 88SE9215 (4 x SATA) */
+&pciec {
+	status = "okay";
+
+	pcie@1,0 {
+		status = "okay";
+	};
+
+	pcie@2,0 {
+		status = "okay";
+	};
+};
+
+/* Consola */
+&uart0 {
+	status = "okay";
+};
+
+/* Microcontrolador Weltrend WT6701 (mismo protocolo que el DNS-320L) */
+&uart1 {
+	status = "okay";
+};
+
+&i2c0 {
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+/* PHY Marvell 88E1510 (id 0x01410dd1) en las direcciones 0 y 1, comprobado en el equipo */
+&mdio {
+	status = "okay";
+
+	phy0: ethernet-phy@0 {
+		reg = <0>;
+	};
+
+	phy1: ethernet-phy@1 {
+		reg = <1>;
+	};
+};
+
+/* MAC fijas (administradas localmente) para que el DHCP asigne siempre la misma IP */
+&eth0 {
+	phy = <&phy0>;
+	phy-mode = "rgmii-id";
+	local-mac-address = [02 d3 40 4c 00 01];
+	status = "okay";
+};
+
+&eth1 {
+	phy = <&phy1>;
+	phy-mode = "rgmii-id";
+	local-mac-address = [02 d3 40 4c 00 02];
+	status = "okay";
+};
+
+/*
+ * NAND Hynix 256 MiB, BCH 4 bits (igual que el DNS-327L). Particiones como en el
+ * firmware de D-Link. Solo "uImage" (núcleo) y "ramdisk" (arranque) son escribibles.
+ */
+&nand_controller {
+	status = "okay";
+
+	nand@0 {
+		reg = <0>;
+		label = "pxa3xx_nand-0";
+		nand-rb = <0>;
+		marvell,nand-keep-config;
+		nand-on-flash-bbt;
+		nand-ecc-strength = <4>;
+		nand-ecc-step-size = <512>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "u-boot";
+				reg = <0x0000000 0x0500000>;
+				read-only;
+			};
+			partition@500000 {
+				label = "uImage";
+				reg = <0x0500000 0x0500000>;
+			};
+			partition@a00000 {
+				label = "ramdisk";
+				reg = <0x0a00000 0x0500000>;
+			};
+			partition@f00000 {
+				label = "image.cfs";
+				reg = <0x0f00000 0xce00000>;
+				read-only;
+			};
+			partition@dd00000 {
+				label = "rescue";
+				reg = <0xdd00000 0x0f00000>;
+				read-only;
+			};
+			partition@ec00000 {
+				label = "config";
+				reg = <0xec00000 0x0a00000>;
+				read-only;
+			};
+			partition@f600000 {
+				label = "mydlink";
+				reg = <0xf600000 0x0a00000>;
+				read-only;
+			};
+		};
+	};
+};

@@ -1,0 +1,75 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Arranque del DNS-340L (initrd grabado en mtd2)
+#  1. Prepara el microcontrolador (DeviceReady, ventilador a media)
+#  2. Ensambla los RAID con mdadm
+#  3. Si encuentra el sistema Debian (etiqueta "debian-raiz"), arranca Debian
+#  4. Si no, o si se fuerza, entra en MODO RESCATE (/rescate.sh: telnet, web, IP .250)
+#
+# Forzar el rescate: memoria USB FAT con un fichero llamado RESCATE en la raíz.
+
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev 2>/dev/null
+mount -t tmpfs tmpfs /run
+mkdir -p /run/mdadm /tmp
+mdev -s
+
+LOG=/run/arranque.txt
+log() { echo "[$(cut -d' ' -f1 /proc/uptime)] $*" | tee -a $LOG > /dev/console; }
+
+# ---------- Microcontrolador ----------
+if [ -c /dev/ttyS1 ]; then
+	stty -F /dev/ttyS1 115200 cs8 -cstopb -parenb raw -echo 2>/dev/null
+	printf '\372\003\001\000\000\000\373' > /dev/ttyS1   # DeviceReady
+	sleep 1
+	printf '\372\002\000\001\000\000\373' > /dev/ttyS1   # Ventilador a media
+fi
+
+# ---------- Esperar a los discos (hasta 20 s) ----------
+i=0
+while [ $i -lt 20 ]; do
+	n=$(ls /dev/sd? 2>/dev/null | wc -l)
+	[ "$n" -ge 4 ] && break
+	sleep 1; i=$((i+1)); mdev -s
+done
+log "Discos detectados: $(ls /dev/sd? 2>/dev/null | tr '\n' ' ')"
+
+# ---------- ¿Rescate forzado? ----------
+RESCATE=0
+grep -qw rescate /proc/cmdline && RESCATE=1
+mkdir -p /mnt/usb
+for d in /dev/sd[a-z]1 /dev/sd[a-z]; do
+	[ -b "$d" ] || continue
+	mount -t vfat -o ro "$d" /mnt/usb 2>/dev/null || continue
+	[ -e /mnt/usb/RESCATE ] && RESCATE=1 && log "Fichero RESCATE en $d"
+	umount /mnt/usb
+done
+
+# ---------- Arrancar Debian desde el RAID ----------
+if [ $RESCATE = 0 ]; then
+	echo 'DEVICE partitions' > /run/mdadm.conf
+	mdadm --assemble --scan --config=/run/mdadm.conf >> $LOG 2>&1
+	sleep 1; mdev -s
+	ROOT=$(findfs LABEL=debian-raiz 2>/dev/null)
+	if [ -n "$ROOT" ] && mount -t ext4 -o ro "$ROOT" /newroot; then
+		if [ -x /newroot/sbin/init ] || [ -L /newroot/sbin/init ]; then
+			log "Arrancando Debian desde $ROOT"
+			cp $LOG /newroot/run/ 2>/dev/null
+			umount /run
+			mount --move /dev /newroot/dev
+			mount --move /proc /newroot/proc
+			mount --move /sys /newroot/sys
+			exec switch_root /newroot /sbin/init
+		fi
+		log "En $ROOT no hay /sbin/init"
+		umount /newroot
+	else
+		log "No se encuentra el sistema Debian (LABEL=debian-raiz)"
+	fi
+fi
+
+log "MODO RESCATE"
+exec /rescate.sh

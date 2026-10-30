@@ -1,0 +1,7 @@
+build/
+*.img
+*.bin
+!docs/**
+uImage
+uInitrd
+*.tar.gz

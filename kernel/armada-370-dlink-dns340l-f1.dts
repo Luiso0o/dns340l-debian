@@ -1,0 +1,4 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/* DNS-340L, registros internos en 0xf1000000 */
+#define DNS340L_REGS_BASE 0xf1000000
+#include "armada-370-dlink-dns340l.dtsi"
