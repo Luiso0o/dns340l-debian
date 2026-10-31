@@ -49,6 +49,7 @@ NAND (flash)                         Discos (4 × WD Red 4 TB, GPT idéntica)
 * Probar en el equipo el salto con `kexec` al núcleo oficial de Debian (preparado: `debian/zz-dns340l`,
   `debian/instalar-nucleo-debian.sh`).
 * Alimentación del USB 3.0 (Etron), LED y botón de encendido.
+* Panel web **Cockpit** y **Tailscale** (ya incluidos en `debian/preparar-debian-dns340l.sh`; probar en el equipo).
 * Publicar `uImage` y `uInitrd` como *release*, con su código fuente.
 
 ## Guía rápida

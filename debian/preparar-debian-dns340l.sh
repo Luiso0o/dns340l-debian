@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Prepara un Debian 13 (trixie) armhf mínimo para el D-Link DNS-340L.
 # Se ejecuta en Kali/Debian/Ubuntu (también en WSL) con:
-#   sudo apt install -y debootstrap qemu-user-static binfmt-support
-#   sudo bash preparar-debian-dns340l.sh
+#   sudo apt install -y debootstrap qemu-user-binfmt binfmt-support debian-archive-keyring curl
+#   sudo USUARIO=tu_usuario bash preparar-debian-dns340l.sh
+# Opcional: COCKPIT=0, TAILSCALE=0, NUCLEO=0. Para el núcleo de Debian, deja junto a este script
+# zz-dns340l y armada-370-dlink-dns340l.dtb (lo genera kernel/compilar-nucleo.sh).
 # Resultado: ~/dns340l-debian.tar.gz  (se copia a una memoria USB para el NAS)
 set -euo pipefail
 
@@ -11,6 +13,10 @@ DEST=/var/tmp/dns340l-rootfs
 MIRROR=http://deb.debian.org/debian
 SALIDA="${SUDO_USER:+/home/$SUDO_USER}"; SALIDA="${SALIDA:-$HOME}/dns340l-debian.tar.gz"
 USUARIO="${USUARIO:-admin}"   # cámbialo: sudo USUARIO=pepe bash preparar-debian-dns340l.sh
+COCKPIT="${COCKPIT:-1}"       # panel web Cockpit (puerto 9090). COCKPIT=0 para no instalarlo
+TAILSCALE="${TAILSCALE:-1}"   # VPN Tailscale. TAILSCALE=0 para no instalarlo
+NUCLEO="${NUCLEO:-1}"         # núcleo oficial de Debian + hook kexec (necesita zz-dns340l y el .dtb al lado)
+AQUI="$(cd "$(dirname "$0")" && pwd)"
 
 [ "$(id -u)" = 0 ] || { echo "Ejecútalo con sudo"; exit 1; }
 command -v debootstrap >/dev/null || { echo "Falta debootstrap"; exit 1; }
@@ -157,6 +163,50 @@ for s in systemd-networkd systemd-resolved systemd-timesyncd ssh dns340l-ventila
 	chroot "$DEST" systemctl enable "$s"
 done
 chroot "$DEST" systemctl enable smartmontools 2>/dev/null || chroot "$DEST" systemctl enable smartd 2>/dev/null || true
+
+# Paquetes adicionales: el chroot necesita /proc, /sys, /dev y DNS
+cp /etc/resolv.conf "$DEST/etc/resolv.conf" 2>/dev/null || echo "nameserver 1.1.1.1" > "$DEST/etc/resolv.conf"
+for d in proc sys dev; do mount --bind /$d "$DEST/$d"; done
+desmontar() { for d in dev sys proc; do umount "$DEST/$d" 2>/dev/null || true; done; }
+trap desmontar EXIT
+
+# Núcleo oficial de Debian, arrancado con kexec desde la flash (ver initrd/init y debian/zz-dns340l)
+DTB="$AQUI/armada-370-dlink-dns340l.dtb"
+[ -f "$DTB" ] || DTB="$AQUI/../build/armada-370-dlink-dns340l.dtb"
+if [ "$NUCLEO" = 1 ] && [ -f "$AQUI/zz-dns340l" ] && [ -f "$DTB" ]; then
+	echo "== Núcleo oficial de Debian (linux-image-armmp)"
+	mkdir -p "$DEST/etc/dns340l" "$DEST/etc/kernel/postinst.d" "$DEST/etc/initramfs/post-update.d"
+	cp "$DTB" "$DEST/etc/dns340l/armada-370-dlink-dns340l.dtb"
+	install -m 755 "$AQUI/zz-dns340l" "$DEST/etc/kernel/postinst.d/zz-dns340l"
+	install -m 755 "$AQUI/zz-dns340l" "$DEST/etc/initramfs/post-update.d/zz-dns340l"
+	chroot "$DEST" /usr/bin/env DEBIAN_FRONTEND=noninteractive \
+		apt-get install -y --no-install-recommends linux-image-armmp initramfs-tools zstd
+else
+	echo "== AVISO: sin núcleo de Debian (faltan zz-dns340l o armada-370-dlink-dns340l.dtb junto al script)"
+fi
+
+# Panel web Cockpit (https://IP:9090). Se activa por socket: solo consume memoria mientras se usa
+if [ "$COCKPIT" = 1 ]; then
+	echo "== Cockpit"
+	chroot "$DEST" /usr/bin/env DEBIAN_FRONTEND=noninteractive \
+		apt-get install -y --no-install-recommends cockpit cockpit-storaged
+fi
+
+# Tailscale (repositorio oficial). Si no hubiera paquete armhf, no se interrumpe la preparación
+if [ "$TAILSCALE" = 1 ]; then
+	echo "== Tailscale"
+	if curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg \
+	        -o "$DEST/usr/share/keyrings/tailscale-archive-keyring.gpg" &&
+	   curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.tailscale-keyring.list \
+	        -o "$DEST/etc/apt/sources.list.d/tailscale.list"; then
+		chroot "$DEST" /bin/sh -c 'apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y tailscale' \
+			|| echo "== AVISO: no se pudo instalar Tailscale (instálalo después en el NAS)"
+	else
+		echo "== AVISO: no se pudo descargar el repositorio de Tailscale"
+	fi
+fi
+
+desmontar; trap - EXIT
 ln -sf ../run/systemd/resolve/stub-resolv.conf "$DEST/etc/resolv.conf"
 
 # Usuario

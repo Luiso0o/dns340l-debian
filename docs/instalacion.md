@@ -72,6 +72,10 @@ ls /proc/sys/fs/binfmt_misc/ | grep qemu-arm      # debe existir, con la marca F
 sudo USUARIO=tu_usuario bash debian/preparar-debian-dns340l.sh
 ```
 
+Opcional: `COCKPIT=0`, `TAILSCALE=0` o `NUCLEO=0` delante de `bash` para no instalar el panel web,
+Tailscale o el núcleo oficial de Debian. Para el núcleo, deja junto al script `zz-dns340l` y
+`armada-370-dlink-dns340l.dtb`.
+
 Resultado: `~/dns340l-debian.tar.gz` (~100 MB). Debian 13 armhf mínimo con systemd, SSH, `mdadm`,
 `smartmontools`, `sudo`, actualizaciones automáticas, red por DHCP, español, Europe/Madrid, servicio del
 ventilador y apagado por el microcontrolador.
@@ -119,3 +123,19 @@ ssh tu_usuario@<IP>                  # MAC de eth0: 02:d3:40:4c:00:01
 sudo dpkg-reconfigure -plow unattended-upgrades
 cat /proc/mdstat
 ```
+
+## Panel web y acceso remoto en un sistema ya instalado
+
+```sh
+# Cockpit: panel web en https://IP:9090 (entra con tu usuario)
+sudo apt install --no-install-recommends cockpit cockpit-storaged
+
+# Tailscale: acceso desde fuera sin abrir puertos en el router
+curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
+curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list
+sudo apt update && sudo apt install tailscale
+sudo tailscale up
+```
+
+No publiques el puerto 9090 ni el 22 en el router: usa Tailscale para acceder desde fuera.
+
