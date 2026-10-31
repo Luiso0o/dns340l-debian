@@ -1,12 +1,16 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Arranque del DNS-340L (initrd grabado en mtd2)
+# Arranque del DNS-340L (initrd grabado en mtd2). Hace de "GRUB":
 #  1. Prepara el microcontrolador (DeviceReady, ventilador a media)
-#  2. Ensambla los RAID con mdadm
-#  3. Si encuentra el sistema Debian (etiqueta "debian-raiz"), arranca Debian
-#  4. Si no, o si se fuerza, entra en MODO RESCATE (/rescate.sh: telnet, web, IP .250)
+#  2. Ensambla los RAID con mdadm y monta el sistema (LABEL=debian-raiz)
+#  3. Si el sistema tiene un núcleo de Debian preparado en /boot/dns340l/
+#     (vmlinuz, initrd.img, dtb), salta a él con kexec  -> núcleo actualizable con apt
+#  4. Si no, o si kexec falla, arranca Debian con el núcleo de la flash (switch_root)
+#  5. Si no encuentra Debian, o si se fuerza, entra en MODO RESCATE (/rescate.sh)
 #
-# Forzar el rescate: memoria USB FAT con un fichero llamado RESCATE en la raíz.
+# Ficheros en la raíz de una memoria USB FAT:
+#   RESCATE  -> modo rescate
+#   NOKEXEC  -> arrancar Debian con el núcleo de la flash (sin kexec)
 
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 
@@ -37,14 +41,16 @@ while [ $i -lt 20 ]; do
 done
 log "Discos detectados: $(ls /dev/sd? 2>/dev/null | tr '\n' ' ')"
 
-# ---------- ¿Rescate forzado? ----------
-RESCATE=0
+# ---------- Ficheros de control en memorias USB ----------
+RESCATE=0; KEXEC=1
 grep -qw rescate /proc/cmdline && RESCATE=1
+grep -qw dns340l.kexec=no /proc/cmdline && KEXEC=0
 mkdir -p /mnt/usb
 for d in /dev/sd[a-z]1 /dev/sd[a-z]; do
 	[ -b "$d" ] || continue
 	mount -t vfat -o ro "$d" /mnt/usb 2>/dev/null || continue
 	[ -e /mnt/usb/RESCATE ] && RESCATE=1 && log "Fichero RESCATE en $d"
+	[ -e /mnt/usb/NOKEXEC ] && KEXEC=0 && log "Fichero NOKEXEC en $d"
 	umount /mnt/usb
 done
 
@@ -56,7 +62,26 @@ if [ $RESCATE = 0 ]; then
 	ROOT=$(findfs LABEL=debian-raiz 2>/dev/null)
 	if [ -n "$ROOT" ] && mount -t ext4 -o ro "$ROOT" /newroot; then
 		if [ -x /newroot/sbin/init ] || [ -L /newroot/sbin/init ]; then
-			log "Arrancando Debian desde $ROOT"
+
+			# --- 1.ª opción: núcleo de Debian en /boot/dns340l con kexec
+			K=/newroot/boot/dns340l
+			if [ $KEXEC = 1 ] && [ -f $K/vmlinuz ] && [ -f $K/initrd.img ] && [ -f $K/dtb ]; then
+				ARGS="console=ttyS0,115200 root=LABEL=debian-raiz ro rootwait $(cat $K/cmdline 2>/dev/null)"
+				log "kexec: núcleo de Debian $(cat $K/version 2>/dev/null)"
+				if kexec -l $K/vmlinuz --initrd=$K/initrd.img --dtb=$K/dtb --command-line="$ARGS" >> $LOG 2>&1; then
+					cp $LOG /mnt/usb/ 2>/dev/null
+					umount /newroot
+					mdadm --stop --scan >> $LOG 2>&1
+					sync
+					kexec -e
+				fi
+				log "kexec ha fallado: se usa el núcleo de la flash"
+				mdadm --assemble --scan --config=/run/mdadm.conf >> $LOG 2>&1
+				mount -t ext4 -o ro "$ROOT" /newroot 2>/dev/null
+			fi
+
+			# --- 2.ª opción: Debian con el núcleo de la flash
+			log "Arrancando Debian desde $ROOT con el núcleo de la flash"
 			cp $LOG /newroot/run/ 2>/dev/null
 			umount /run
 			mount --move /dev /newroot/dev

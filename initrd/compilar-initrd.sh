@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Genera uInitrd: arranque desde RAID + modo rescate (BusyBox, mdadm y mke2fs estáticos).
+# Genera uInitrd: arranque desde RAID (kexec o switch_root) + modo rescate (BusyBox, mdadm, mke2fs y kexec estáticos).
 # Requisitos: git gcc-arm-linux-gnueabi make autoconf u-boot-tools cpio fakeroot
 # Uso: ./compilar-initrd.sh [carpeta_de_trabajo]
 set -euo pipefail
@@ -31,6 +31,13 @@ mkdir -p "$TRABAJO"; cd "$TRABAJO"
 	--disable-e2initrd-helper --without-libarchive --disable-defrag LDFLAGS=-static CFLAGS=-Os
   make -j"$(nproc)" libs && make -C misc mke2fs && ${CROSS}strip misc/mke2fs )
 
+# --- kexec estático (kexec-tools)
+[ -d kexec-tools ] || git clone --depth 1 https://github.com/horms/kexec-tools.git kexec-tools
+( cd kexec-tools
+  [ -f configure ] || ./bootstrap
+  [ -f Makefile ] || ./configure --host=arm-linux-gnueabi --without-zlib --without-lzma LDFLAGS=-static CFLAGS=-Os
+  make -j"$(nproc)" && ${CROSS}strip build/sbin/kexec )
+
 # --- Sistema de ficheros del initrd
 RAIZ="$TRABAJO/initrd-raiz"
 rm -rf "$RAIZ"
@@ -38,6 +45,7 @@ mkdir -p "$RAIZ"/{bin,sbin,usr/bin,usr/sbin,proc,sys,dev,tmp,run,mnt/usb,newroot
 ( cd busybox && make ARCH=arm CROSS_COMPILE=$CROSS CONFIG_PREFIX="$RAIZ" install >/dev/null )
 rm -f "$RAIZ/sbin/mdadm" "$RAIZ/sbin/mke2fs" "$RAIZ/sbin/mkfs.ext4"   # BusyBox instala enlaces con esos nombres
 cp mdadm/mdadm "$RAIZ/sbin/"
+cp kexec-tools/build/sbin/kexec "$RAIZ/sbin/"
 cp e2fsprogs/b/misc/mke2fs "$RAIZ/sbin/"; ln -sf mke2fs "$RAIZ/sbin/mkfs.ext4"
 install -m 755 "$AQUI/init" "$RAIZ/init"
 install -m 755 "$AQUI/rescate.sh" "$RAIZ/rescate.sh"

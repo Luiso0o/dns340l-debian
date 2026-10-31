@@ -93,7 +93,24 @@ El script localiza los 4 discos por su tamaño, escribe las tablas GPT, crea `md
 y `md2` (RAID 5), los formatea e instala Debian en `md0`. El RAID 5 se sincroniza después en segundo plano
 (10–15 horas con 4 × 4 TB).
 
-## 6. Primer arranque
+## 6. Núcleo oficial de Debian (arranque con kexec)
+
+Desde el mismo modo rescate, con red e Internet, y en la memoria USB: `instalar-nucleo-debian.sh`,
+`zz-dns340l` y `armada-370-dlink-dns340l.dtb` (lo genera `kernel/compilar-nucleo.sh`).
+
+```sh
+date -s "AAAA-MM-DD hh:mm"          # si la hora es incorrecta (apt la necesita)
+sh instalar-nucleo-debian.sh
+```
+
+Monta el RAID, hace `chroot`, instala `linux-image-armmp` e `initramfs-tools`, genera `mdadm.conf` y deja
+en `/boot/dns340l/` el núcleo, su initramfs y el árbol de dispositivos. El hook `zz-dns340l` (en
+`/etc/kernel/postinst.d/` y `/etc/initramfs/post-update.d/`) los actualiza en cada `apt upgrade`, guardando
+la versión anterior como `*.old`.
+
+Para arrancar con el núcleo de la flash en vez del de Debian: memoria USB FAT con un fichero `NOKEXEC`.
+
+## 7. Primer arranque
 
 Borra `RESCATE` de la memoria (o quítala) y reinicia.
 

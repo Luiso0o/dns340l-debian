@@ -36,15 +36,18 @@ NAND (flash)                         Discos (4 × WD Red 4 TB, GPT idéntica)
 * **U-Boot no se modifica nunca.** Su orden de arranque de fábrica (que ignora variables guardadas,
   ver [docs/u-boot.md](docs/u-boot.md)) carga 4 MiB de `mtd1` y 3 MiB de `mtd2`: ahí van nuestro núcleo
   y nuestro arranque.
-* El **arranque** (`initrd/init`) ensambla los RAID, busca `LABEL=debian-raiz` y arranca Debian.
-  Si no lo encuentra, o si hay una memoria USB FAT con un fichero `RESCATE`, entra en **modo rescate**
-  (Telnet, web de diagnóstico, IP 192.168.1.250, `mdadm`, `mke2fs`).
+* El **arranque** (`initrd/init`) hace de "GRUB": ensambla los RAID, monta `LABEL=debian-raiz` y salta
+  con **`kexec` al núcleo oficial de Debian** (`linux-image-armmp`) que hay en `/boot/dns340l/`. Así el
+  núcleo se actualiza con `apt`, como en un PC, sin tocar la flash. Si no hay núcleo de Debian o `kexec`
+  falla, arranca Debian con el núcleo de la flash.
+* Si no encuentra Debian, o si hay una memoria USB FAT con un fichero `RESCATE`, entra en **modo rescate**
+  (Telnet, web de diagnóstico, IP 192.168.1.250, `mdadm`, `mke2fs`, `kexec`).
 
 ## Próximos pasos
 
 * Probar el núcleo y el arranque v2 con la consola serie y grabarlos.
-* **Núcleo en el disco, como en un PC**: dejar en la flash un núcleo y un arranque mínimos que monten el
-  RAID 1 y salten con `kexec` al núcleo de `/boot`. Así las actualizaciones del núcleo no tocarían la flash.
+* Probar en el equipo el salto con `kexec` al núcleo oficial de Debian (preparado: `debian/zz-dns340l`,
+  `debian/instalar-nucleo-debian.sh`).
 * Alimentación del USB 3.0 (Etron), LED y botón de encendido.
 * Publicar `uImage` y `uInitrd` como *release*, con su código fuente.
 
@@ -56,7 +59,8 @@ NAND (flash)                         Discos (4 × WD Red 4 TB, GPT idéntica)
 3. **Grabar** `uImage` en `mtd1` y `uInitrd` en `mtd2` desde el firmware de D-Link (por SSH, como root) **o** desde U-Boot con la [consola serie](docs/consola-serie.md)
 4. **Preparar Debian** en un PC Linux/WSL: `sudo USUARIO=tu_usuario bash debian/preparar-debian-dns340l.sh`
 5. **Instalar** desde el modo rescate: `sh instalacion/instalar-nas.sh` (⚠️ borra los discos)
-6. Reiniciar y entrar por SSH.
+6. **Núcleo de Debian**: `sh debian/instalar-nucleo-debian.sh` (instala `linux-image-armmp` y lo deja listo para `kexec`)
+7. Reiniciar y entrar por SSH.
 
 Detalle completo en **[docs/instalacion.md](docs/instalacion.md)**.
 
@@ -76,7 +80,7 @@ Detalle completo en **[docs/instalacion.md](docs/instalacion.md)**.
 ```
 kernel/        árbol de dispositivos, configuración de Linux 6.12 y script de compilación
 initrd/        arranque (init), modo rescate y script de compilación (BusyBox, mdadm, mke2fs)
-debian/        script que prepara Debian 13 armhf (debootstrap) con SSH, mdadm y ventilador
+debian/        preparación de Debian 13 armhf (debootstrap), núcleo oficial con kexec (zz-dns340l)
 instalacion/   instalar-nas.sh (particiona, crea RAID, instala) y generador de tablas GPT
 herramientas/  borrar_env.c (borra solo la zona de variables de U-Boot; ver docs/u-boot.md)
 docs/          documentación

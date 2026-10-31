@@ -30,4 +30,5 @@ cd "$TRABAJO"
 TAM=$(stat -c %s uImage)
 echo "uImage: $TAM bytes (límite $LIMITE)"
 [ "$TAM" -le "$LIMITE" ] || { echo "ERROR: uImage supera 4 MiB y U-Boot no lo leerá entero"; exit 1; }
-md5sum uImage
+cp linux/arch/arm/boot/dts/marvell/armada-370-dlink-dns340l-f1.dtb armada-370-dlink-dns340l.dtb
+md5sum uImage armada-370-dlink-dns340l.dtb

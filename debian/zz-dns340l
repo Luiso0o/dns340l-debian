@@ -1,0 +1,32 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copia el núcleo de Debian más reciente a /boot/dns340l/ para que el arranque de la flash
+# lo cargue con kexec. Se instala como:
+#   /etc/kernel/postinst.d/zz-dns340l      (al instalar o actualizar linux-image-*)
+#   /etc/initramfs/post-update.d/zz-dns340l (al regenerar el initramfs)
+# Guarda la versión anterior como *.old.
+set -e
+
+D=/boot/dns340l
+DTB=/etc/dns340l/armada-370-dlink-dns340l.dtb
+
+V=$(linux-version list 2>/dev/null | linux-version sort 2>/dev/null | tail -n1)
+[ -n "$V" ] || exit 0
+[ -f "/boot/vmlinuz-$V" ] || exit 0
+# Durante la instalación del paquete, el initramfs aún puede no existir: el hook de initramfs
+# volverá a llamar a este script cuando se genere.
+[ -f "/boot/initrd.img-$V" ] || exit 0
+[ -f "$DTB" ] || { echo "zz-dns340l: falta $DTB" >&2; exit 0; }
+
+mkdir -p "$D"
+if [ -f "$D/version" ] && [ "$(cat "$D/version")" != "$V" ]; then
+	for f in vmlinuz initrd.img dtb version; do
+		[ -f "$D/$f" ] && cp -p "$D/$f" "$D/$f.old"
+	done
+fi
+cp "/boot/vmlinuz-$V"    "$D/vmlinuz.tmp"    && mv "$D/vmlinuz.tmp" "$D/vmlinuz"
+cp "/boot/initrd.img-$V" "$D/initrd.img.tmp" && mv "$D/initrd.img.tmp" "$D/initrd.img"
+cp "$DTB"                "$D/dtb.tmp"        && mv "$D/dtb.tmp" "$D/dtb"
+echo "$V" > "$D/version"
+sync
+echo "zz-dns340l: núcleo $V preparado en $D"
