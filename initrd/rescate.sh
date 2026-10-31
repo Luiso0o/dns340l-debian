@@ -5,6 +5,7 @@
 # - Señales: ventilador al MÁXIMO = rescate arrancado; a MEDIA = la red tiene IP por DHCP
 # - IP de reserva 192.168.1.250 (eth0) y 192.168.1.251 (eth1): cámbialas abajo si tu red es otra
 # - Web de diagnóstico (http://IP/estado.txt), Telnet SIN contraseña (solo para red local)
+# - Shell en la consola serie (ttyS0)
 # - Copia el diagnóstico en la primera memoria USB FAT que encuentre (dns340l-log.txt)
 
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin
@@ -61,6 +62,15 @@ done
 # ---------- Servicios de diagnóstico ----------
 httpd -p 80 -h /www
 telnetd -l /bin/sh
+
+# Shell en la consola serie (ttyS0): pulsar Intro en PuTTY
+(
+	while true; do
+		echo; echo "== DNS-340L MODO RESCATE: pulsa Intro para abrir una shell en la consola =="
+		read _ </dev/console
+		setsid cttyhack /bin/sh -l
+	done
+) </dev/console >/dev/console 2>&1 &
 
 # ---------- Memoria USB: la primera con formato FAT ----------
 USB=""
