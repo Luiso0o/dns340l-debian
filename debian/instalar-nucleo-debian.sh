@@ -3,7 +3,8 @@
 # Instala el núcleo oficial de Debian (linux-image-armmp) en el sistema del RAID y lo prepara
 # en /boot/dns340l/ para arrancarlo con kexec. Se ejecuta desde el MODO RESCATE (o el sistema
 # de prueba) por Telnet, en la carpeta de la memoria USB que contiene:
-#   instalar-nucleo-debian.sh, zz-dns340l, armada-370-dlink-dns340l.dtb (y mdadm si el sistema no lo trae)
+#   instalar-nucleo-debian.sh, zz-dns340l, dns340l-arranque-ok.service, armada-370-dlink-dns340l.dtb
+#   (y mdadm si el sistema no lo trae)
 # Necesita red con salida a Internet (deb.debian.org).
 set -e
 cd "$(dirname "$0")"
@@ -13,7 +14,7 @@ R=/newroot
 paso() { echo; echo "=== $*"; }
 fallo() { echo; echo "*** ERROR: $* ***"; exit 1; }
 
-for f in zz-dns340l armada-370-dlink-dns340l.dtb; do [ -f "$f" ] || fallo "falta $f"; done
+for f in zz-dns340l armada-370-dlink-dns340l.dtb dns340l-arranque-ok.service; do [ -f "$f" ] || fallo "falta $f"; done
 
 paso "Hora del sistema (apt la necesita correcta)"
 ntpd -q -n -p 0.debian.pool.ntp.org 2>/dev/null || ntpd -q -n -p pool.ntp.org 2>/dev/null || true
@@ -50,6 +51,8 @@ mkdir -p $R/etc/dns340l $R/etc/kernel/postinst.d $R/etc/initramfs/post-update.d
 cp armada-370-dlink-dns340l.dtb $R/etc/dns340l/
 install -m 755 zz-dns340l $R/etc/kernel/postinst.d/zz-dns340l
 install -m 755 zz-dns340l $R/etc/initramfs/post-update.d/zz-dns340l
+install -m 644 dns340l-arranque-ok.service $R/etc/systemd/system/dns340l-arranque-ok.service
+chroot $R systemctl enable dns340l-arranque-ok.service
 
 paso "Definiendo los RAID en mdadm.conf"
 chroot $R /bin/sh -c '/usr/share/mdadm/mkconf > /etc/mdadm/mdadm.conf.nuevo && mv /etc/mdadm/mdadm.conf.nuevo /etc/mdadm/mdadm.conf'
@@ -65,4 +68,4 @@ ls -l $R/boot/dns340l/
 cat $R/boot/dns340l/version
 sync
 echo
-echo "Listo. Para usarlo con kexec: touch /newroot/etc/dns340l/kexec (o fichero KEXEC en la memoria USB)."
+echo "Listo. El arranque de la flash (v4) cargará este núcleo con kexec."

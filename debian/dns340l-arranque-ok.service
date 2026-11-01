@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Confirma que el núcleo de Debian arrancado con kexec funciona: borra /boot/dns340l/intento.
+# Si ese fichero sigue ahí en el siguiente encendido, el arranque de la flash no usa kexec
+# (ver initrd/init). Solo se borra si el núcleo en marcha es el de /boot/dns340l/version.
+[Unit]
+Description=DNS-340L: confirmar arranque con el núcleo de Debian (kexec)
+ConditionPathExists=/boot/dns340l/intento
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'if [ "$$(uname -r)" = "$$(cat /boot/dns340l/version)" ]; then rm -f /boot/dns340l/intento; fi'
+
+[Install]
+WantedBy=multi-user.target

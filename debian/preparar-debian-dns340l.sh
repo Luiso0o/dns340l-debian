@@ -178,12 +178,14 @@ trap desmontar EXIT
 # Núcleo oficial de Debian, arrancado con kexec desde la flash (ver initrd/init y debian/zz-dns340l)
 DTB="$AQUI/armada-370-dlink-dns340l.dtb"
 [ -f "$DTB" ] || DTB="$AQUI/../build/armada-370-dlink-dns340l.dtb"
-if [ "$NUCLEO" = 1 ] && [ -f "$AQUI/zz-dns340l" ] && [ -f "$DTB" ]; then
+if [ "$NUCLEO" = 1 ] && [ -f "$AQUI/zz-dns340l" ] && [ -f "$AQUI/dns340l-arranque-ok.service" ] && [ -f "$DTB" ]; then
 	echo "== Núcleo oficial de Debian (linux-image-armmp)"
 	mkdir -p "$DEST/etc/dns340l" "$DEST/etc/kernel/postinst.d" "$DEST/etc/initramfs/post-update.d"
 	cp "$DTB" "$DEST/etc/dns340l/armada-370-dlink-dns340l.dtb"
 	install -m 755 "$AQUI/zz-dns340l" "$DEST/etc/kernel/postinst.d/zz-dns340l"
 	install -m 755 "$AQUI/zz-dns340l" "$DEST/etc/initramfs/post-update.d/zz-dns340l"
+	install -m 644 "$AQUI/dns340l-arranque-ok.service" "$DEST/etc/systemd/system/dns340l-arranque-ok.service"
+	chroot "$DEST" systemctl enable dns340l-arranque-ok.service
 	chroot "$DEST" /usr/bin/env DEBIAN_FRONTEND=noninteractive \
 		apt-get install -y --no-install-recommends linux-image-armmp initramfs-tools zstd
 else

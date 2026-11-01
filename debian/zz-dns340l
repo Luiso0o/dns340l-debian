@@ -23,6 +23,8 @@ if [ -f "$D/version" ] && [ "$(cat "$D/version")" != "$V" ]; then
 	for f in vmlinuz initrd.img dtb version; do
 		[ -f "$D/$f" ] && cp -p "$D/$f" "$D/$f.old"
 	done
+	# Núcleo nuevo: se le da una oportunidad aunque el anterior fallara con kexec
+	rm -f "$D/intento"
 fi
 cp "/boot/vmlinuz-$V"    "$D/vmlinuz.tmp"    && mv "$D/vmlinuz.tmp" "$D/vmlinuz"
 cp "/boot/initrd.img-$V" "$D/initrd.img.tmp" && mv "$D/initrd.img.tmp" "$D/initrd.img"

@@ -97,14 +97,10 @@ El script localiza los 4 discos por su tamaño, escribe las tablas GPT, crea `md
 y `md2` (RAID 5), los formatea e instala Debian en `md0`. El RAID 5 se sincroniza después en segundo plano
 (10–15 horas con 4 × 4 TB).
 
-## 6. Núcleo oficial de Debian (kexec, opcional y desactivado por defecto)
-
-Por defecto Debian arranca con el **núcleo de la flash**. Este paso solo prepara el núcleo oficial para
-probar más adelante el salto con `kexec`.
-
+## 6. Núcleo oficial de Debian (arranque con kexec)
 
 Desde el mismo modo rescate, con red e Internet, y en la memoria USB: `instalar-nucleo-debian.sh`,
-`zz-dns340l` y `armada-370-dlink-dns340l.dtb` (lo genera `kernel/compilar-nucleo.sh`).
+`zz-dns340l`, `dns340l-arranque-ok.service` y `armada-370-dlink-dns340l.dtb` (lo genera `kernel/compilar-nucleo.sh`).
 
 ```sh
 date -s "AAAA-MM-DD hh:mm"          # si la hora es incorrecta (apt la necesita)
@@ -116,11 +112,16 @@ en `/boot/dns340l/` el núcleo, su initramfs y el árbol de dispositivos. El hoo
 `/etc/kernel/postinst.d/` y `/etc/initramfs/post-update.d/`) los actualiza en cada `apt upgrade`, guardando
 la versión anterior como `*.old`.
 
-Para **probar** el núcleo de Debian una vez: memoria USB FAT con un fichero `KEXEC`. Para dejarlo
-**activado**, desde Debian: `sudo touch /etc/dns340l/kexec` (y `sudo rm /etc/dns340l/kexec` para volver).
-Un fichero `NOKEXEC` en la memoria USB lo anula. Si `kexec` falla, se arranca con el núcleo de la flash.
+**Protección.** Antes de cada salto, el arranque de la flash crea `/boot/dns340l/intento`, y el
+servicio `dns340l-arranque-ok` lo borra cuando Debian arranca con ese núcleo. Si al encender el fichero
+sigue ahí, el intento anterior falló (con `panic=20` el NAS se reinicia solo) y esta vez se arranca con
+el núcleo de la flash. Para volver a intentarlo: `sudo rm /boot/dns340l/intento`. Al instalar un núcleo
+nuevo con `apt` se borra solo.
 
-Con el núcleo de la flash, actualizar el núcleo significa grabar un `uImage` nuevo en `mtd1`.
+Para no usar `kexec`: `sudo touch /etc/dns340l/sin-kexec`, o una memoria USB FAT con un fichero `NOKEXEC`.
+
+El núcleo de la flash es el respaldo: debe tener también lo que necesita Debian (cgroups, autofs, TUN
+para Tailscale…), y actualizarlo significa grabar un `uImage` nuevo en `mtd1`.
 
 ## 7. Primer arranque
 
