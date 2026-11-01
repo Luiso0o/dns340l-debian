@@ -12,10 +12,12 @@ Cadena de arranque:
 
 1. **U-Boot original** (2011.12 de Marvell, en `mtd0`). Su orden de arranque es fija e ignora las
    variables guardadas: `nand read.e 0xa00000 0x500000 0x400000; nand read.e 0xf00000 0xa00000 0x300000; bootm 0xa00000 0xf00000`.
-2. **Núcleo de la flash** (`mtd1`, `uImage` ≤ 4 MiB): Linux 6.12 con el árbol de dispositivos añadido al final (*appended DTB*).
+2. **Núcleo de la flash** (`mtd1`, `uImage` ≤ 4 MiB): Linux 6.12 con el árbol de dispositivos añadido al final
+   (*appended DTB*). Solo carga el núcleo de Debian con `kexec` y sirve el modo rescate.
 3. **Arranque de la flash** (`mtd2`, `uInitrd` ≤ 3 MiB): `initrd/init` ensambla los RAID, monta
    `LABEL=debian-raiz` y salta con `kexec` al núcleo oficial de Debian que hay en `/boot/dns340l/`.
-   Si no puede, arranca Debian con el núcleo de la flash; si no hay Debian, entra en modo rescate.
+   **Solo kexec**: Debian nunca arranca con el núcleo de la flash. Si el núcleo actual falló en el
+   intento anterior (`/boot/dns340l/intento`), prueba el anterior (`*.old`); si no, modo rescate.
 4. **Debian 13** en `md0` (RAID 1 de 4 discos), intercambio en `md1`, datos en `md2` (RAID 5).
 
 ## Estructura

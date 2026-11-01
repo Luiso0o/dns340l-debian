@@ -112,16 +112,20 @@ en `/boot/dns340l/` el núcleo, su initramfs y el árbol de dispositivos. El hoo
 `/etc/kernel/postinst.d/` y `/etc/initramfs/post-update.d/`) los actualiza en cada `apt upgrade`, guardando
 la versión anterior como `*.old`.
 
-**Protección.** Antes de cada salto, el arranque de la flash crea `/boot/dns340l/intento`, y el
-servicio `dns340l-arranque-ok` lo borra cuando Debian arranca con ese núcleo. Si al encender el fichero
-sigue ahí, el intento anterior falló (con `panic=20` el NAS se reinicia solo) y esta vez se arranca con
-el núcleo de la flash. Para volver a intentarlo: `sudo rm /boot/dns340l/intento`. Al instalar un núcleo
-nuevo con `apt` se borra solo.
+Debian arranca **siempre** con este núcleo: sin él, el arranque de la flash entra en modo rescate.
 
-Para no usar `kexec`: `sudo touch /etc/dns340l/sin-kexec`, o una memoria USB FAT con un fichero `NOKEXEC`.
+**Protección.** Antes de cada salto, el arranque de la flash anota en `/boot/dns340l/intento` qué núcleo
+prueba (`actual` o `anterior`), y el servicio `dns340l-arranque-ok` borra el fichero cuando Debian arranca.
+El núcleo de Debian recibe `panic=20`: si su initramfs falla, el NAS se reinicia solo. Al encender:
 
-El núcleo de la flash es el respaldo: debe tener también lo que necesita Debian (cgroups, autofs, TUN
-para Tailscale…), y actualizarlo significa grabar un `uImage` nuevo en `mtd1`.
+| `/boot/dns340l/intento` | Qué hace |
+|---|---|
+| no existe | arranca el núcleo actual |
+| `actual` | el actual falló: arranca el anterior (`*.old`) |
+| `anterior` | fallaron los dos: modo rescate |
+
+Para volver a probar el núcleo actual: `sudo rm /boot/dns340l/intento` (o desde el rescate). Al instalar
+un núcleo nuevo con `apt`, el fichero se borra solo.
 
 ## 7. Primer arranque
 

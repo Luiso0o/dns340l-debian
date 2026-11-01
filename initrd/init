@@ -1,20 +1,20 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Arranque del DNS-340L (initrd grabado en mtd2).
+# Arranque del DNS-340L (initrd grabado en mtd2). Hace de "GRUB": Debian se arranca SIEMPRE con su
+# núcleo oficial (linux-image-armmp, actualizable con apt) mediante kexec. El núcleo de la flash solo
+# sirve para cargarlo y para el modo rescate.
 #  1. Prepara el microcontrolador (DeviceReady, ventilador a media)
 #  2. Espera a los discos y ensambla los RAID con mdadm
-#  3. Monta el sistema Debian (LABEL=debian-raiz) y salta con KEXEC al núcleo oficial de Debian
-#     que hay en /boot/dns340l/ (vmlinuz, initrd.img, dtb): el núcleo se actualiza con apt
-#  4. Si no hay núcleo de Debian, si kexec falla o si el intento anterior no llegó a arrancar
-#     Debian, arranca Debian con el núcleo de la flash (switch_root)
-#  5. Si no hay Debian, entra en MODO RESCATE (/rescate.sh) y dice por qué en la consola serie
+#  3. Monta el sistema Debian (LABEL=debian-raiz) y salta con kexec al núcleo de /boot/dns340l/
+#     (vmlinuz, initrd.img, dtb)
+#  4. Si ese núcleo no llegó a arrancar en el intento anterior, prueba el anterior (*.old)
+#  5. Si no hay forma de arrancar Debian, entra en MODO RESCATE (/rescate.sh) y dice por qué
 #
-# Protección contra un núcleo de Debian que no arranca: antes del salto se crea
-# /boot/dns340l/intento; el servicio dns340l-arranque-ok de Debian lo borra al arrancar. Si al
-# encender sigue ahí, el intento anterior falló y esta vez se usa el núcleo de la flash.
+# Protección: antes del salto se escribe en /boot/dns340l/intento qué núcleo se prueba
+# ("actual" o "anterior"); el servicio dns340l-arranque-ok de Debian borra el fichero al arrancar.
+# El núcleo de Debian recibe panic=20: si su initramfs falla, el NAS se reinicia solo.
 #
-# Desactivar kexec: fichero /etc/dns340l/sin-kexec en Debian, fichero NOKEXEC en una memoria USB
-# FAT o dns340l.kexec=no en la línea de órdenes. Fichero RESCATE en la memoria USB -> modo rescate.
+# Memoria USB FAT con un fichero RESCATE en la raíz -> modo rescate.
 
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 
@@ -23,13 +23,23 @@ mount -t sysfs sysfs /sys
 mount -t devtmpfs devtmpfs /dev 2>/dev/null
 mount -t tmpfs tmpfs /run
 mkdir -p /run/mdadm /tmp /newroot /mnt/usb
+USBLOG=""
 mdev -s
 
 LOG=/run/arranque.txt
 log() { echo "[$(cut -d' ' -f1 /proc/uptime)] $*" | tee -a $LOG > /dev/console; }
 # Vuelca a la consola (y al registro) la salida de una orden, con sangría
 volcar() { "$@" 2>&1 | sed 's/^/      /' | tee -a $LOG > /dev/console; }
-rescate() { log "*** $* ***"; log "MODO RESCATE"; exec /rescate.sh; }
+guardar_registro() {
+	[ -n "$USBLOG" ] && mount -t vfat "$USBLOG" /mnt/usb 2>/dev/null || return 0
+	cp $LOG /mnt/usb/dns340l-arranque.txt; sync; umount /mnt/usb
+}
+rescate() {
+	log "*** $* ***"; log "MODO RESCATE"
+	grep -q ' /newroot ' /proc/mounts && umount /newroot
+	guardar_registro
+	exec /rescate.sh
+}
 
 log "Arranque DNS-340L: núcleo $(uname -r)"
 
@@ -55,20 +65,19 @@ for b in /sys/block/sd*; do
 done
 [ "$(nsata)" -ge 4 ] || log "AVISO: solo hay $(nsata) discos SATA (se esperaban 4); se intenta arrancar igualmente"
 
-# ---------- Opciones: línea de órdenes y memorias USB ----------
-RESCATE=0; KEXEC=1; USBLOG=""
+# ---------- Memorias USB ----------
+RESCATE=0
 grep -qw rescate /proc/cmdline && RESCATE=1
-grep -qw dns340l.kexec=no /proc/cmdline && KEXEC=0 && log "kexec desactivado (dns340l.kexec=no)"
 for d in /dev/sd[a-z]1 /dev/sd[a-z]; do
 	[ -b "$d" ] || continue
 	readlink -f /sys/class/block/${d##*/} | grep -q /usb || continue
 	mount -t vfat -o ro "$d" /mnt/usb 2>/dev/null || continue
 	[ -z "$USBLOG" ] && USBLOG=$d
 	[ -e /mnt/usb/RESCATE ] && RESCATE=1 && log "Memoria USB $d: fichero RESCATE"
-	[ -e /mnt/usb/NOKEXEC ] && KEXEC=0   && log "Memoria USB $d: fichero NOKEXEC (sin kexec)"
 	umount /mnt/usb
 done
 [ $RESCATE = 1 ] && rescate "Rescate pedido (fichero RESCATE o 'rescate' en la línea de órdenes)"
+command -v kexec >/dev/null || rescate "Falta la orden kexec en el arranque de la flash"
 
 # ---------- RAID ----------
 log "Ensamblando RAID:"
@@ -82,68 +91,41 @@ grep -q '^md' /proc/mdstat || rescate "No se ha ensamblado ningún RAID"
 ROOT=$(findfs LABEL=debian-raiz 2>/dev/null)
 [ -n "$ROOT" ] || rescate "No hay ningún sistema de ficheros con LABEL=debian-raiz"
 log "Raíz encontrada: $ROOT"
-if ! mount -t ext4 -o ro "$ROOT" /newroot 2>>$LOG; then
-	rescate "No se puede montar $ROOT (ext4). Revísalo con e2fsck desde el rescate"
-fi
-if [ ! -x /newroot/sbin/init ] && [ ! -L /newroot/sbin/init ]; then
-	umount /newroot
-	rescate "En $ROOT no existe /sbin/init: la instalación de Debian está incompleta"
-fi
-[ -f /newroot/etc/dns340l/sin-kexec ] && KEXEC=0 && log "kexec desactivado en Debian (/etc/dns340l/sin-kexec)"
+mount -t ext4 -o ro "$ROOT" /newroot 2>>$LOG || rescate "No se puede montar $ROOT (ext4). Revísalo con e2fsck desde el rescate"
+[ -x /newroot/sbin/init ] || [ -L /newroot/sbin/init ] || rescate "En $ROOT no existe /sbin/init: la instalación de Debian está incompleta"
 
-# ---------- Núcleo de Debian con kexec ----------
+# ---------- Elegir núcleo de Debian ----------
 K=/newroot/boot/dns340l
-if [ $KEXEC = 1 ] && [ -f $K/intento ]; then
-	log "AVISO: el último intento con kexec ($(cat $K/intento 2>/dev/null)) no llegó a arrancar Debian"
-	log "       Esta vez se usa el núcleo de la flash. Revisa el núcleo de Debian y reinicia."
-	KEXEC=0
-fi
-if [ $KEXEC = 1 ]; then
-	if [ -f $K/vmlinuz ] && [ -f $K/initrd.img ] && [ -f $K/dtb ] && command -v kexec >/dev/null; then
-		# panic=20: si el initramfs de Debian no encuentra la raíz, reinicia en vez de quedarse
-		# parado; al volver, el fichero "intento" hace que se use el núcleo de la flash
-		ARGS="console=ttyS0,115200 root=LABEL=debian-raiz ro rootwait panic=20 $(cat $K/cmdline 2>/dev/null)"
-		log "kexec: cargando el núcleo de Debian $(cat $K/version 2>/dev/null)"
-		if kexec -l $K/vmlinuz --initrd=$K/initrd.img --dtb=$K/dtb --command-line="$ARGS" >>$LOG 2>&1 && \
-		   mount -o remount,rw /newroot 2>>$LOG; then
-			cat $K/version > $K/intento 2>/dev/null || echo kexec > $K/intento
-			mkdir -p /newroot/var/log/dns340l && cp $LOG /newroot/var/log/dns340l/arranque-flash.txt
-			if [ -n "$USBLOG" ] && mount -t vfat "$USBLOG" /mnt/usb 2>/dev/null; then
-				cp $LOG /mnt/usb/dns340l-arranque.txt; umount /mnt/usb
-			fi
-			sync
-			umount /newroot
-			mdadm --stop --scan >>$LOG 2>&1
-			sync
-			log "kexec: saltando al núcleo de Debian"
-			kexec -e
-			log "kexec -e ha fallado"
-			mdadm --assemble --scan --config=/run/mdadm.conf >>$LOG 2>&1
-			sleep 1; mdev -s
-			mount -t ext4 -o ro "$ROOT" /newroot || rescate "No se puede volver a montar $ROOT tras fallar kexec"
-		else
-			log "kexec -l ha fallado (detalle en /run/arranque.txt)"
-			mount -o remount,ro /newroot 2>/dev/null
-		fi
-	else
-		log "No hay núcleo de Debian en /boot/dns340l (o falta la orden kexec)"
-	fi
-	log "Se continúa con el núcleo de la flash"
-fi
+completo() { [ -f $K/vmlinuz$1 ] && [ -f $K/initrd.img$1 ] && [ -f $K/dtb$1 ]; }
+INTENTO=$(cat $K/intento 2>/dev/null)
+case "$INTENTO" in
+	"")
+		completo "" || rescate "No hay núcleo de Debian en /boot/dns340l (ejecuta instalar-nucleo-debian.sh)"
+		SUF=""; NOMBRE=actual ;;
+	actual)
+		log "AVISO: el núcleo $(cat $K/version 2>/dev/null) no llegó a arrancar Debian en el intento anterior"
+		completo .old || rescate "No hay núcleo anterior (*.old) con el que probar"
+		SUF=.old; NOMBRE=anterior ;;
+	*)
+		rescate "Ni el núcleo actual ni el anterior llegaron a arrancar Debian (fichero /boot/dns340l/intento)" ;;
+esac
+VER=$(cat $K/version$SUF 2>/dev/null)
 
-# ---------- Debian con el núcleo de la flash ----------
-log "Arrancando Debian desde $ROOT con el núcleo de la flash ($(uname -r))"
-# Copia del registro en la memoria USB (para diagnosticar sin consola serie)
-if [ -n "$USBLOG" ] && mount -t vfat "$USBLOG" /mnt/usb 2>/dev/null; then
-	cp $LOG /mnt/usb/dns340l-arranque.txt; sync; umount /mnt/usb
-fi
-# /run se pasa a Debian tal cual: el registro queda en /run/arranque.txt
-mount --move /run /newroot/run || umount /run
-mount --move /dev /newroot/dev
-mount --move /proc /newroot/proc
-mount --move /sys /newroot/sys
-exec switch_root /newroot /sbin/init
-# Solo se llega aquí si switch_root no ha podido ejecutarse
-mount -t proc proc /proc 2>/dev/null; mount -t sysfs sysfs /sys 2>/dev/null
-mount -t devtmpfs devtmpfs /dev 2>/dev/null; mount -t tmpfs tmpfs /run 2>/dev/null
-rescate "switch_root ha fallado"
+# ---------- Salto con kexec ----------
+# panic=20: si el initramfs de Debian no encuentra la raíz, reinicia en vez de quedarse parado
+ARGS="console=ttyS0,115200 root=LABEL=debian-raiz ro rootwait panic=20 $(cat $K/cmdline 2>/dev/null)"
+log "kexec: cargando el núcleo $NOMBRE de Debian ($VER)"
+kexec -l $K/vmlinuz$SUF --initrd=$K/initrd.img$SUF --dtb=$K/dtb$SUF --command-line="$ARGS" >>$LOG 2>&1 || \
+	rescate "kexec -l no ha podido cargar el núcleo $NOMBRE ($VER); detalle arriba"
+mount -o remount,rw /newroot 2>>$LOG || rescate "No se puede montar $ROOT en escritura para anotar el intento"
+echo $NOMBRE > $K/intento
+mkdir -p /newroot/var/log/dns340l && cp $LOG /newroot/var/log/dns340l/arranque-flash.txt
+sync
+umount /newroot
+mdadm --stop --scan >>$LOG 2>&1
+log "kexec: saltando al núcleo $NOMBRE de Debian ($VER)"
+guardar_registro
+sync
+kexec -e
+# Solo se llega aquí si kexec -e falla. El fichero "intento" hará probar el otro núcleo la próxima vez.
+rescate "kexec -e ha fallado"

@@ -22,8 +22,7 @@ con **Linux 6.12 LTS**, **RAID por software (`mdadm`)** y **SSH**.
 | USB 3.0 delantero (Etron EJ168) | ❌ el chip queda sin alimentación (falta localizar su GPIO) |
 | LED | 🟡 GPIO localizados, sin asignar |
 | Botón de encendido (aviso del microcontrolador) | 🟡 pendiente |
-| Arranque de Debian desde el RAID (núcleo y arranque v4) | 🟡 en pruebas |
-| Salto con `kexec` al núcleo de Debian | 🟡 en pruebas |
+| Arranque de Debian desde el RAID con `kexec` (núcleo y arranque v4) | 🟡 en pruebas |
 
 ## Cómo queda el sistema
 
@@ -38,10 +37,11 @@ NAND (flash)                         Discos (4 × WD Red 4 TB, GPT idéntica)
   ver [docs/u-boot.md](docs/u-boot.md)) carga 4 MiB de `mtd1` y 3 MiB de `mtd2`: ahí van nuestro núcleo
   y nuestro arranque.
 * El **arranque** (`initrd/init`) hace de "GRUB": ensambla los RAID, monta `LABEL=debian-raiz` y salta
-  con **`kexec` al núcleo oficial de Debian** (`linux-image-armmp`) que hay en `/boot/dns340l/`. Así el
-  núcleo se actualiza con `apt`, como en un PC, sin tocar la flash.
-* Si no hay núcleo de Debian, si `kexec` falla o si el intento anterior no llegó a arrancar Debian
-  (fichero `/boot/dns340l/intento` sin borrar), arranca Debian con el **núcleo de la flash**.
+  con **`kexec` al núcleo oficial de Debian** (`linux-image-armmp`) que hay en `/boot/dns340l/`. Debian
+  funciona **siempre** con su núcleo, que se actualiza con `apt`, como en un PC, sin tocar la flash. El
+  núcleo de la flash solo sirve para cargarlo y para el modo rescate.
+* Si un núcleo de Debian no llega a arrancar (fichero `/boot/dns340l/intento` sin borrar), el siguiente
+  encendido prueba el núcleo anterior (`*.old`); si tampoco, entra en modo rescate.
 * En la consola serie muestra los discos, el estado del RAID, la raíz encontrada y, si algo falla, el
   motivo exacto. El registro queda en `/var/log/dns340l/` y en la memoria USB, si hay una pinchada.
 * Si no puede arrancar Debian, o si hay una memoria USB FAT con un fichero `RESCATE`, entra en **modo rescate**
