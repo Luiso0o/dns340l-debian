@@ -65,4 +65,4 @@ ls -l $R/boot/dns340l/
 cat $R/boot/dns340l/version
 sync
 echo
-echo "Listo. El arranque v3 (flash) cargará este núcleo con kexec."
+echo "Listo. Para usarlo con kexec: touch /newroot/etc/dns340l/kexec (o fichero KEXEC en la memoria USB)."

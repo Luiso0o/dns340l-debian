@@ -32,8 +32,27 @@ done
 set -- $DISCOS
 [ $# = 4 ] || fallo "se esperaban 4 discos de $SECTORES sectores y hay $# ($DISCOS)"
 for d in $DISCOS; do
-	grep -q "^/dev/$d" /proc/mounts && fallo "/dev/$d está montado"
+	grep -q "^/dev/$d" /proc/mounts && fallo "/dev/$d (o una de sus particiones) está montado"
+	grep -q "^/dev/$d" /proc/swaps  && fallo "/dev/$d tiene una partición de intercambio activa"
 	echo "/dev/$d: $(cat /sys/block/$d/device/model 2>/dev/null)  OK"
+done
+
+# RAID activos que usan estos discos: no pueden estar montados ni en uso como intercambio
+RAIDS=""
+for m in /sys/block/md*; do
+	[ -e "$m" ] || continue
+	md=${m##*/}
+	for s in $m/slaves/*; do
+		[ -e "$s" ] || continue
+		for d in $DISCOS; do
+			case "${s##*/}" in $d*) RAIDS="$RAIDS $md"; break 2;; esac
+		done
+	done
+done
+for md in $RAIDS; do
+	grep -q "^/dev/$md " /proc/mounts && fallo "/dev/$md (RAID con estos discos) está montado en $(grep "^/dev/$md " /proc/mounts | cut -d' ' -f2). Desmóntalo antes: umount /dev/$md"
+	grep -q "^/dev/$md " /proc/swaps  && fallo "/dev/$md (RAID con estos discos) se usa como intercambio. Desactívalo: swapoff /dev/$md"
+	echo "/dev/$md: RAID activo con estos discos, sin montar (se detendrá)"
 done
 
 echo
@@ -43,7 +62,13 @@ read r
 [ "$r" = BORRAR ] || fallo "cancelado por el usuario"
 
 paso "Deteniendo RAID antiguos y borrando sus firmas"
-mdadm --stop --scan 2>/dev/null || true
+for md in $RAIDS; do
+	mdadm --stop /dev/$md || fallo "no se puede detener /dev/$md; no se ha borrado nada"
+done
+for md in $RAIDS; do
+	[ -e /sys/block/$md/md/array_state ] && [ "$(cat /sys/block/$md/md/array_state)" != clear ] && \
+		fallo "/dev/$md sigue activo; no se ha borrado nada"
+done
 for d in $DISCOS; do
 	for p in /dev/${d}[0-9]*; do
 		[ -b "$p" ] || continue

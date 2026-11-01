@@ -22,7 +22,8 @@ con **Linux 6.12 LTS**, **RAID por software (`mdadm`)** y **SSH**.
 | USB 3.0 delantero (Etron EJ168) | ❌ el chip queda sin alimentación (falta localizar su GPIO) |
 | LED | 🟡 GPIO localizados, sin asignar |
 | Botón de encendido (aviso del microcontrolador) | 🟡 pendiente |
-| Arranque de Debian desde el RAID (núcleo y arranque v2) | 🟡 en pruebas |
+| Arranque de Debian desde el RAID (núcleo y arranque v4) | 🟡 en pruebas |
+| Salto con `kexec` al núcleo de Debian | 🟡 preparado, desactivado por defecto |
 
 ## Cómo queda el sistema
 
@@ -36,17 +37,19 @@ NAND (flash)                         Discos (4 × WD Red 4 TB, GPT idéntica)
 * **U-Boot no se modifica nunca.** Su orden de arranque de fábrica (que ignora variables guardadas,
   ver [docs/u-boot.md](docs/u-boot.md)) carga 4 MiB de `mtd1` y 3 MiB de `mtd2`: ahí van nuestro núcleo
   y nuestro arranque.
-* El **arranque** (`initrd/init`) hace de "GRUB": ensambla los RAID, monta `LABEL=debian-raiz` y salta
-  con **`kexec` al núcleo oficial de Debian** (`linux-image-armmp`) que hay en `/boot/dns340l/`. Así el
-  núcleo se actualiza con `apt`, como en un PC, sin tocar la flash. Si no hay núcleo de Debian o `kexec`
-  falla, arranca Debian con el núcleo de la flash.
-* Si no encuentra Debian, o si hay una memoria USB FAT con un fichero `RESCATE`, entra en **modo rescate**
+* El **arranque** (`initrd/init`) ensambla los RAID, monta `LABEL=debian-raiz` y arranca Debian con el
+  **núcleo de la flash** (`switch_root`). En la consola serie muestra los discos, el estado del RAID, la
+  raíz encontrada y, si algo falla, el motivo exacto.
+* **Opcional (desactivado por defecto):** saltar con `kexec` al núcleo oficial de Debian
+  (`linux-image-armmp`) de `/boot/dns340l/`, para actualizar el núcleo con `apt` sin tocar la flash. Se
+  activa con `touch /etc/dns340l/kexec` o con un fichero `KEXEC` en una memoria USB.
+* Si no puede arrancar Debian, o si hay una memoria USB FAT con un fichero `RESCATE`, entra en **modo rescate**
   (Telnet, web de diagnóstico, IP 192.168.1.250, `mdadm`, `mke2fs`, `kexec`).
 
 ## Próximos pasos
 
-* Probar el núcleo y el arranque v2 con la consola serie y grabarlos.
-* Probar en el equipo el salto con `kexec` al núcleo oficial de Debian (preparado: `debian/zz-dns340l`,
+* Probar el núcleo y el arranque v4 cargándolos en RAM desde U-Boot (consola serie) y, si funcionan, grabarlos.
+* Después, probar el salto con `kexec` al núcleo oficial de Debian (preparado: `debian/zz-dns340l`,
   `debian/instalar-nucleo-debian.sh`).
 * Alimentación del USB 3.0 (Etron), LED y botón de encendido.
 * Panel web **Cockpit** y **Tailscale** (incluidos en `debian/preparar-debian-dns340l.sh`; el repositorio de Tailscale tiene paquete armhf, 1.104.4 instalado sin problemas; falta probarlos con Debian arrancado).
@@ -60,7 +63,7 @@ NAND (flash)                         Discos (4 × WD Red 4 TB, GPT idéntica)
 3. **Grabar** `uImage` en `mtd1` y `uInitrd` en `mtd2` desde el firmware de D-Link (por SSH, como root) **o** desde U-Boot con la [consola serie](docs/consola-serie.md)
 4. **Preparar Debian** en un PC Linux/WSL: `sudo USUARIO=tu_usuario bash debian/preparar-debian-dns340l.sh`
 5. **Instalar** desde el modo rescate: `sh instalacion/instalar-nas.sh` (⚠️ borra los discos)
-6. **Núcleo de Debian**: `sh debian/instalar-nucleo-debian.sh` (instala `linux-image-armmp` y lo deja listo para `kexec`)
+6. *(Opcional)* **Núcleo de Debian**: `sh debian/instalar-nucleo-debian.sh` (instala `linux-image-armmp` para el salto con `kexec`)
 7. Reiniciar y entrar por SSH.
 
 Detalle completo en **[docs/instalacion.md](docs/instalacion.md)**.

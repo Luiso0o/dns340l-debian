@@ -59,14 +59,19 @@ deb http://deb.debian.org/debian trixie-updates main contrib non-free-firmware
 deb http://security.debian.org/debian-security trixie-security main contrib non-free-firmware
 EOF
 
-# Red: DHCP en eth0 (MAC fija 02:d3:40:4c:00:01 en el árbol de dispositivos)
+# Red: DHCP en el primer puerto (MAC fija 02:d3:40:4c:00:01 en el árbol de dispositivos).
+# Según la versión de systemd y del árbol de dispositivos, el puerto puede llamarse eth0 o end0: se aceptan los dos.
+# ClientIdentifier=mac para que el router identifique al NAS por su MAC (reservas de IP).
 mkdir -p "$DEST/etc/systemd/network"
 cat > "$DEST/etc/systemd/network/10-lan.network" <<'EOF'
 [Match]
-Name=eth0
+Name=end0 eth0
 
 [Network]
 DHCP=yes
+
+[DHCPv4]
+ClientIdentifier=mac
 EOF
 
 # mdadm: los RAID los ensambla el arranque de la flash; aquí solo vigilancia
