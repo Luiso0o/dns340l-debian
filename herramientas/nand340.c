@@ -401,6 +401,19 @@ int main(int argc, char **argv)
 		return r < 0;
 	}
 
+	if (!strcmp(argv[1], "reloj")) {   /* recarga el divisor del reloj de la NAND, como clk-corediv.c */
+		abre();
+		volatile uint32_t *ratio = clk + 2;   /* 0x18748 */
+		printf("Antes: control=0x%08x divisor=0x%08x (NAND /%u)\n", *clk, *ratio, (*ratio >> 8) & 0x3f);
+		*clk = *clk | (1u << 1);              /* forzar recarga para el reloj de la NAND */
+		*clk = *clk | (1u << 8);              /* disparar la recarga */
+		usleep(1000);
+		*clk = *clk & ~(0xffu | (1u << 8));
+		usleep(1000);
+		printf("Después: control=0x%08x divisor=0x%08x\n", *clk, *ratio);
+		return 0;
+	}
+
 	if (!strcmp(argv[1], "id")) {
 		abre();
 		if (identifica()) return 1;
