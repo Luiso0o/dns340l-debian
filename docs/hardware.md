@@ -55,6 +55,12 @@ Configuración de la placa `RD-88F6710_ALpha_DNS340L` en U-Boot y en el núcleo 
 * **Valores iniciales**: U-Boot deja a 1 los GPIO **48, 49, 50**; el núcleo de D-Link pone a 1 los **47, 48, 49** (y 50 a 0). La función de 47–49 no se ha identificado (no alimentan bahías: las 4 funcionan sin tocarlos).
 * **LED**: el programa `led` de D-Link escribe en los registros `0x18140` (salida) y `0x18148` (parpadeo) los bits 18, 19, 25, 26 y 27 → **GPIO 50, 51, 57, 58, 59**.
 * Valor alto en GPIO 4 (banco 0) y GPIO 65 (banco 2) en ambos casos.
+* **Firmware de D-Link en marcha** (segundo equipo, leído con `devmem`): MPP idéntico al anterior;
+  salidas GPIO 47–59 (`0xf1018144` = `0xF0007FFF`), con valor alto en **47–51** y bajo en 52–59
+  (`0xf1018140` = `0x800F8000`); bancos 0 y 2 sin salidas. Ningún script de D-Link toca GPIO para el
+  USB 3.0: el Etron funciona con el controlador propio de Etron (`etxhci_hcd_131016`, dentro del núcleo).
+* **PCIe con el firmware de D-Link:** los dos enlaces activos (`0xf1041a04` = `0x00010000`,
+  `0xf1081a04` = `0x00010100`, bit 0 = 0); Etron en el puerto 0 (bus 0), 88SE9215 en el puerto 1 (bus 1).
 
 ## Tamaño máximo de volumen
 
