@@ -42,3 +42,22 @@ El código de recuperación (`rcvr`) carga `/multiware.img` de un USB (FAT o ext
 automática comprueba un GPIO de "botón de recuperación" (clase 17 en la tabla de la placa), pero la tabla
 `RD-88F6710_ALpha_DNS340L` **solo define un GPIO** (clase 2, pin 24). Por tanto, **ningún botón activa la
 recuperación**; solo se puede lanzar con la orden `rcvr` desde la consola serie.
+
+## Interrumpir el arranque
+
+Desensamblado de `abortboot` en el U-Boot de D-Link (1.08b01):
+
+* **Solo la tecla `1` interrumpe** la cuenta atrás. El espacio se ignora y **cualquier otra tecla la
+  termina y arranca en el acto**.
+* Con las variables de U-Boot borradas (`*** Warning - bad CRC, using default environment`) la espera
+  es **0** (`Hit any key to stop autoboot:  0`) y no hay forma de interrumpir: U-Boot no mira el puerto serie.
+
+Solución sin tocar la flash: arrancar por la consola serie (modo UART del BootROM) una copia de tu propio
+U-Boot con la espera cambiada a 5 segundos. Se ejecuta en memoria; al apagar, todo vuelve a ser como antes.
+
+```sh
+python3 herramientas/uboot-con-espera.py flash/mtd0.bin u-boot-espera5.kwb   # a partir de tu copia de mtd0
+sudo apt install u-boot-tools
+sudo kwboot -t -p -B 115200 -b u-boot-espera5.kwb /dev/ttyUSB0
+# encender el NAS; tras la transferencia (~1-2 min), pulsar 1 durante la cuenta atrás -> Marvell>>
+```
