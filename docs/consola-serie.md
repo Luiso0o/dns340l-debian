@@ -31,6 +31,19 @@ Otros conectores de la placa:
 1. Apagado, en continuidad: el pin que pita con la carcasa metálica de un USB es **GND**.
 2. Encendido, en tensión continua: el pin cuya tensión **oscila** durante el arranque es **TX**; el que se queda fijo en ~3,3 V es **RX**.
 
+## La entrada de la consola puede no funcionar
+
+En uno de los equipos probados **solo funciona la salida** (se ve todo el arranque, pero el NAS no recibe nada):
+ni U-Boot, ni el arranque por UART del BootROM (`kwboot`), ni SysRq del núcleo responden. Medido:
+
+* El cable hace contacto con el agujero derecho, y ese pin está unido a la alimentación por ~9,5 kΩ.
+* El pin derecho va a **R104** (encima del pin izquierdo), que mide **≥ 5,7 kΩ** dentro de la placa. Una
+  resistencia tan grande en serie, con una resistencia de subida al otro lado, impediría que la línea baje a 0.
+* Apoyar el TXD del adaptador en el otro extremo de R104 tampoco funcionó (contacto difícil: es un 0603).
+
+Sin confirmar. Si la consola no recibe, la alternativa es grabar la flash por SSH desde el firmware de D-Link
+(ver [instalacion.md](instalacion.md)).
+
 ## Entrar en U-Boot
 
 Encender el NAS y pulsar una tecla durante la cuenta atrás. Aparece `Marvell>>`.
