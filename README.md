@@ -54,6 +54,8 @@ NAND (flash)                         Discos (4 × WD Red 4 TB, GPT idéntica)
 * Alimentación del USB 3.0 (Etron), LED y botón de encendido.
 * Panel web **Cockpit** y **Tailscale** (incluidos en `debian/preparar-debian-dns340l.sh`; el repositorio de Tailscale tiene paquete armhf, 1.104.4 instalado sin problemas; falta probarlos con Debian arrancado).
 * Publicar `uImage` y `uInitrd` como *release*, con su código fuente.
+* Varios NAS en la misma red: la preparación ya da a cada uno su nombre (`NOMBRE`), su MAC (`MAC`) y su
+  identificador; falta que el instalador acepte discos de otros tamaños (ahora solo 4 × 4 TB WD Red).
 
 ## Guía rápida
 

@@ -4,7 +4,9 @@
 # Se ejecuta en Kali/Debian/Ubuntu (también en WSL) con:
 #   sudo apt install -y debootstrap qemu-user-binfmt binfmt-support debian-archive-keyring curl
 #   sudo USUARIO=tu_usuario bash preparar-debian-dns340l.sh
-# Opcional: COCKPIT=0, TAILSCALE=0, NUCLEO=0. Para el núcleo de Debian, deja junto a este script
+# Opcional: COCKPIT=0, TAILSCALE=0, NUCLEO=0, NOMBRE=nas2 (nombre del equipo), MAC=02:d3:40:xx:xx:xx.
+# Para varios NAS en la misma red, prepara un .tar por equipo: cada uno con su NOMBRE y su MAC
+# (si no se indica MAC, se genera una al azar). Para el núcleo de Debian, deja junto a este script
 # zz-dns340l y armada-370-dlink-dns340l.dtb (lo genera kernel/compilar-nucleo.sh).
 # Resultado: ~/dns340l-debian.tar.gz  (se copia a una memoria USB para el NAS)
 set -euo pipefail
@@ -16,6 +18,9 @@ USUARIO="${USUARIO:-admin}"   # cámbialo: sudo USUARIO=pepe bash preparar-debia
 COCKPIT="${COCKPIT:-1}"       # panel web Cockpit (puerto 9090). COCKPIT=0 para no instalarlo
 TAILSCALE="${TAILSCALE:-1}"   # VPN Tailscale. TAILSCALE=0 para no instalarlo
 NUCLEO="${NUCLEO:-1}"         # núcleo oficial de Debian + hook kexec (necesita zz-dns340l y el .dtb al lado)
+NOMBRE="${NOMBRE:-dns340l}"   # nombre del equipo en la red
+# MAC administrada localmente (02:...). Al azar si no se indica; eth1 usa la siguiente.
+MAC="${MAC:-$(printf '02:d3:40:%02x:%02x:%02x' $((RANDOM%256)) $((RANDOM%256)) $((RANDOM%128*2)))}"
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 
 [ "$(id -u)" = 0 ] || { echo "Ejecútalo con sudo"; exit 1; }
@@ -36,12 +41,31 @@ debootstrap --arch=armhf --variant=minbase \
   trixie "$DEST" "$MIRROR"
 
 echo "== Configurando"
-echo dns340l > "$DEST/etc/hostname"
-cat > "$DEST/etc/hosts" <<'EOF'
+[[ "$MAC" =~ ^02(:[0-9a-f]{2}){5}$ ]] || { echo "MAC no válida: $MAC (formato 02:xx:xx:xx:xx:xx, minúsculas)"; exit 1; }
+echo "$NOMBRE" > "$DEST/etc/hostname"
+cat > "$DEST/etc/hosts" <<EOF
 127.0.0.1	localhost
-127.0.1.1	dns340l
+127.0.1.1	$NOMBRE
 ::1		localhost ip6-localhost ip6-loopback
 EOF
+
+# MAC propia de este equipo (el árbol de dispositivos trae una fija, igual en todos los DNS-340L)
+U=$(( 16#${MAC##*:} + 1 )); MAC1="${MAC%:*}:$(printf '%02x' $((U % 256)))"
+mkdir -p "$DEST/etc/systemd/network"
+for par in "eth0 $MAC" "eth1 $MAC1"; do
+	set -- $par
+	cat > "$DEST/etc/systemd/network/00-dns340l-$1.link" <<EOF
+[Match]
+OriginalName=$1
+
+[Link]
+NamePolicy=keep kernel database onboard slot path
+AlternativeNamesPolicy=database onboard slot path
+MACAddressPolicy=none
+MACAddress=$2
+EOF
+done
+echo "== Equipo: $NOMBRE   MAC eth0: $MAC   eth1: $MAC1  (resérvala en el DHCP del router)"
 
 cat > "$DEST/etc/fstab" <<'EOF'
 # Sistema: RAID 1 (md, 4 discos, partición 1)
@@ -59,7 +83,7 @@ deb http://deb.debian.org/debian trixie-updates main contrib non-free-firmware
 deb http://security.debian.org/debian-security trixie-security main contrib non-free-firmware
 EOF
 
-# Red: DHCP en el primer puerto (MAC fija 02:d3:40:4c:00:01 en el árbol de dispositivos).
+# Red: DHCP en el primer puerto (MAC propia, ver los ficheros .link de arriba).
 # Según la versión de systemd y del árbol de dispositivos, el puerto puede llamarse eth0 o end0: se aceptan los dos.
 # ClientIdentifier=mac para que el router identifique al NAS por su MAC (reservas de IP).
 mkdir -p "$DEST/etc/systemd/network"
@@ -227,6 +251,8 @@ chroot "$DEST" passwd -l root
 chroot "$DEST" apt-get clean
 rm -f "$DEST"/var/lib/apt/lists/*_Packages "$DEST"/var/lib/apt/lists/*_Sources 2>/dev/null || true
 rm -f "$DEST/etc/ssh/ssh_host_"*      # se regeneran en el primer arranque
+: > "$DEST/etc/machine-id"             # identificador único: systemd lo genera en el primer arranque
+rm -f "$DEST/var/lib/dbus/machine-id"
 cat > "$DEST/etc/systemd/system/regenerar-claves-ssh.service" <<'EOF'
 [Unit]
 Description=Generar claves de host SSH en el primer arranque

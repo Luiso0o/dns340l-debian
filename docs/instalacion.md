@@ -73,8 +73,19 @@ sudo USUARIO=tu_usuario bash debian/preparar-debian-dns340l.sh
 ```
 
 Opcional: `COCKPIT=0`, `TAILSCALE=0` o `NUCLEO=0` delante de `bash` para no instalar el panel web,
-Tailscale o el núcleo oficial de Debian. Para el núcleo, deja junto al script `zz-dns340l` y
-`armada-370-dlink-dns340l.dtb`.
+Tailscale o el núcleo oficial de Debian. Para el núcleo, deja junto al script `zz-dns340l`,
+`dns340l-arranque-ok.service` y `armada-370-dlink-dns340l.dtb`.
+
+**Varios NAS en la misma red:** prepara un `.tar` por equipo, cada uno con su nombre y su MAC. El árbol de
+dispositivos trae la misma MAC para todos los DNS-340L; Debian la cambia con un fichero `.link`:
+
+```sh
+sudo USUARIO=luis NOMBRE=nas1 MAC=02:d3:40:00:00:10 bash debian/preparar-debian-dns340l.sh
+sudo USUARIO=luis NOMBRE=nas2 MAC=02:d3:40:00:00:20 bash debian/preparar-debian-dns340l.sh
+```
+
+Sin `MAC`, se genera una al azar (el script la muestra al final para reservarla en el router). El
+identificador de máquina (`/etc/machine-id`) y las claves SSH se generan en el primer arranque de cada equipo.
 
 Resultado: `~/dns340l-debian.tar.gz` (~100 MB). Debian 13 armhf mínimo con systemd, SSH, `mdadm`,
 `smartmontools`, `sudo`, actualizaciones automáticas, red por DHCP, español, Europe/Madrid, servicio del
