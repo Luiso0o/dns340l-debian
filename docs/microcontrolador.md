@@ -52,9 +52,26 @@ printf '\372\002\000\001\000\000\373' > /dev/ttyS1    # FA 02 00 01 00 00 FB = v
 
 ## Mensajes que envía el microcontrolador
 
-Según `up_read_daemon`: `PWR` y `PWRPush` (botón de encendido), `RTCAlarm`, respuestas de `ThermalGet`,
-`FanStatusGet`, `APRStatus`, `WOLStatus`, `MCUVer` y lecturas del reloj. El formato exacto de estos mensajes
-está pendiente de documentar.
+Obtenido del desensamblado de `up_read_daemon` (firmware 1.08b01 de D-Link; sin confirmar todavía en vivo).
+Lee `ttyS1` byte a byte y reconoce dos formatos:
+
+* **7 bytes**: `FA b1 b2 b3 b4 b5 FB`. Identifica el mensaje por `b1 b2 b3`.
+* **13 bytes**: `FA` + 11 bytes + `FB`: fecha y hora completas del reloj (respuesta a «Reloj: leer» `08`).
+  Los valores van en BCD (`0x59` = 59).
+
+| Mensaje | Trama | Qué hace D-Link |
+|---|---|---|
+| `PWR` | `FA 21 00 00 .. .. FB` | **Botón de encendido pulsado**: escribe `Button:PWR` en `/runtime/button` y apaga el equipo |
+| `PWRPush` | `FA 23 00 00 .. .. FB` | Pulsación en modo de fábrica (`/runtime/MFG`) |
+| `RTCAlarm` | `FA 20 00 00 .. .. FB` | Alarma del reloj: ejecuta `schedule_poweron -s` |
+| `ACK` | `FA 30 00 00 .. .. FB` | Confirmación de una orden (`/runtime/mcu/ack`) |
+| `MCUVer` | `FA 03 05 00 vv .. FB` | Versión `1.vv` (BCD) |
+| Respuestas | `FA 03 08 00 vv .. FB`, `FA 03 09 ..`, `FA 03 02 02 ..`, `FA 03 0A 02 ..`, `FA 03 0B ..`, `FA 03 0C ..` | ThermalGet, FanStatusGet, APRStatus, WOLStatus, RPWM, RPWMClock |
+| Reloj | `FA 01 01 ii vv .. FB` | Lectura de un campo del reloj (índices de la tabla anterior) |
+
+`up_send_daemon` es el único que escribe en `ttyS1` en el firmware de D-Link (recibe las órdenes de
+`up_send_ctl` por una cola de mensajes System V). Para Debian bastará un único proceso que abra `ttyS1`,
+envíe las órdenes del ventilador y, al recibir `FA 21 00 00`, ejecute `systemctl poweroff`.
 
 ## Uso en este proyecto
 
