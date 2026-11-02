@@ -89,4 +89,4 @@ Pendiente de confirmar pulsando cada botón (`evtest` en Debian, o leyendo `0xf1
 
 ## Tamaño máximo de volumen
 
-El núcleo es de **32 bits**: un dispositivo de bloques no puede superar **16 TiB**. Con 4 × 4 TB en RAID 5 (10,9 TiB) no hay problema; con discos de 8 TB habría que dividir los datos en dos RAID.
+El núcleo es de **32 bits**: un dispositivo de bloques no puede superar **16 TiB**. Con 4 × 4 TB en RAID 5 (10,9 TiB) no hay problema; con discos de 8 TB, `instalar-nas.sh` limita el volumen de datos a 16 TiB y lo avisa (aprovecharlo entero exigiría dividir los datos en dos RAID).

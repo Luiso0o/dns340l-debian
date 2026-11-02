@@ -4,7 +4,7 @@
 
 Necesitas:
 * El DNS-340L con el firmware de D-Link (probado con 1.08b01) y acceso **SSH como root**.
-* 4 discos (el script está pensado para 4 × WD40EFRX; ajusta `SECTORES` y `generar-gpt.sh` para otros).
+* De 2 a 4 discos de cualquier tamaño (mejor iguales; se usa el tamaño del más pequeño).
 * Un PC con Linux o **WSL** (Ubuntu/Debian/Kali) para compilar y preparar Debian.
 * Una memoria USB en **FAT32** (tabla MBR, una partición).
 * Recomendado: adaptador serie de 3,3 V ([consola-serie.md](consola-serie.md)).
@@ -26,10 +26,9 @@ Guarda esa carpeta fuera del NAS. Con ella se puede volver al firmware de D-Link
 
 ```sh
 sudo apt install git gcc-arm-linux-gnueabi make bc bison flex libssl-dev u-boot-tools \
-     device-tree-compiler autoconf cpio fakeroot gdisk
+     device-tree-compiler autoconf autopoint gettext cpio fakeroot
 kernel/compilar-nucleo.sh      # → build/uImage  (≤ 4 MiB)
-initrd/compilar-initrd.sh      # → build/uInitrd (≤ 3 MiB)
-cd instalacion && ./generar-gpt.sh   # → gpt_disco[1-4]_{inicio,final}.bin
+initrd/compilar-initrd.sh      # → build/uInitrd (≤ 3 MiB) y build/sfdisk (estático, para instalar-nas.sh)
 ```
 
 Copia también `build/mdadm/mdadm` y `build/e2fsprogs/b/misc/mke2fs` junto a `instalar-nas.sh`
@@ -93,8 +92,8 @@ ventilador y apagado por el microcontrolador.
 
 ## 5. Instalar en los discos
 
-Copia en la raíz de la memoria USB (FAT32): `dns340l-debian.tar.gz` (sin descomprimir), `instalar-nas.sh`,
-`mdadm`, `mke2fs` y los 8 ficheros `gpt_disco*.bin`. Crea también un fichero vacío llamado **`RESCATE`**.
+Copia en la raíz de la memoria USB (FAT32): `dns340l-debian.tar.gz` (sin descomprimir), `instalar-nas.sh`
+y `sfdisk` (de `build/`). Crea también un fichero vacío llamado **`RESCATE`**.
 
 Arranca el NAS (entrará en modo rescate), conéctate por Telnet a `192.168.1.250` y:
 
@@ -104,9 +103,18 @@ cd /mnt/usb
 sh instalar-nas.sh                   # escribe BORRAR para confirmar
 ```
 
-El script localiza los 4 discos por su tamaño, escribe las tablas GPT, crea `md0` (RAID 1), `md1` (RAID 1)
-y `md2` (RAID 5), los formatea e instala Debian en `md0`. El RAID 5 se sincroniza después en segundo plano
-(10–15 horas con 4 × 4 TB).
+El script localiza los discos SATA de las bahías (de 2 a 4, de cualquier tamaño; nunca la memoria USB),
+muestra el esquema y el espacio útil, y solo continúa si escribes `BORRAR`. Después:
+
+* Escribe en todos los discos la misma tabla GPT, calculada sobre el más pequeño: sistema 20 GiB,
+  intercambio 2 GiB y datos con el resto, dejando 100 MiB libres al final (para poder sustituir un disco por
+  otro algo más pequeño).
+* Crea `md0` (RAID 1, sistema), `md1` (RAID 1, intercambio) y `md2` (datos: **RAID 5** con 3 o 4 discos,
+  **RAID 1** con 2), los formatea e instala Debian en `md0`.
+* Si `md2` superaría **16 TiB** (límite del núcleo de 32 bits, por ejemplo con 4 × 8 TB), reduce la partición
+  de datos y lo avisa antes de borrar nada.
+
+El RAID de datos se sincroniza después en segundo plano (10–15 horas con 4 × 4 TB).
 
 ## 6. Núcleo oficial de Debian (arranque con kexec)
 

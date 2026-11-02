@@ -1,7 +1,8 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Genera uInitrd: arranque desde RAID (kexec o switch_root) + modo rescate (BusyBox, mdadm, mke2fs y kexec estáticos).
-# Requisitos: git gcc-arm-linux-gnueabi make autoconf u-boot-tools cpio fakeroot
+# Genera uInitrd: arranque desde RAID con kexec + modo rescate (BusyBox, mdadm, mke2fs y kexec estáticos).
+# Genera también sfdisk estático (va junto a instalar-nas.sh en la memoria USB; no cabe en el initrd).
+# Requisitos: git gcc-arm-linux-gnueabi make autoconf autopoint gettext bison u-boot-tools cpio fakeroot
 # Uso: ./compilar-initrd.sh [carpeta_de_trabajo]
 set -euo pipefail
 
@@ -37,6 +38,19 @@ mkdir -p "$TRABAJO"; cd "$TRABAJO"
   [ -f configure ] || ./bootstrap
   [ -f Makefile ] || ./configure --host=arm-linux-gnueabi --without-zlib --without-lzma LDFLAGS=-static CFLAGS=-Os
   make -j"$(nproc)" && ${CROSS}strip build/sbin/kexec )
+
+# --- sfdisk estático (util-linux 2.40.4), para instalar-nas.sh
+[ -d util-linux ] || git clone --depth 1 -b v2.40.4 https://github.com/util-linux/util-linux.git util-linux
+( cd util-linux
+  [ -f configure ] || ./autogen.sh
+  mkdir -p b && cd b
+  [ -f Makefile ] || ../configure --host=arm-linux-gnueabi --disable-all-programs --enable-libuuid \
+	--enable-libblkid --enable-libsmartcols --enable-libfdisk --enable-fdisks=check \
+	--enable-static-programs=sfdisk --disable-shared --enable-static --without-ncurses --without-ncursesw \
+	--without-tinfo --without-readline --without-systemd --without-udev --without-python --disable-nls \
+	--disable-bash-completion --without-cryptsetup --without-libmagic --without-econf CFLAGS=-Os
+  make -j"$(nproc)" sfdisk.static && ${CROSS}strip sfdisk.static )
+cp util-linux/b/sfdisk.static "$TRABAJO/sfdisk"
 
 # --- Sistema de ficheros del initrd
 RAIZ="$TRABAJO/initrd-raiz"

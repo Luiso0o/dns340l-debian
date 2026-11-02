@@ -26,7 +26,7 @@ Cadena de arranque:
 kernel/        árbol de dispositivos (.dtsi + -f1.dts), configuración de Linux 6.12, compilar-nucleo.sh
 initrd/        init (arranque), rescate.sh (modo rescate), compilar-initrd.sh (BusyBox, mdadm, mke2fs, kexec estáticos)
 debian/        preparar-debian-dns340l.sh (debootstrap), zz-dns340l (hook de núcleo), instalar-nucleo-debian.sh
-instalacion/   instalar-nas.sh (particiona, crea RAID, instala) y generar-gpt.sh
+instalacion/   instalar-nas.sh (particiona con sfdisk, crea RAID, instala; de 2 a 4 discos de cualquier tamaño)
 herramientas/  borrar_env.c (borra solo la zona de variables de U-Boot)
 docs/          documentación del hardware, U-Boot, consola serie, microcontrolador, instalación y rescate
 ```

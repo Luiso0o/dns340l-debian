@@ -27,7 +27,7 @@ con **Linux 6.12 LTS**, **RAID por software (`mdadm`)** y **SSH**.
 ## Cómo queda el sistema
 
 ```
-NAND (flash)                         Discos (4 × WD Red 4 TB, GPT idéntica)
+NAND (flash)                         Discos (2-4, GPT idéntica; aquí 4 × 4 TB)
 ├─ mtd0  U-Boot original (intacto)   ├─ part. 1  20 GiB ─┐ md0  RAID 1 ×4  ext4  "debian-raiz"  → Debian 13
 ├─ mtd1  Linux 6.12 (uImage ≤4 MiB)  ├─ part. 2   2 GiB ─┤ md1  RAID 1 ×4  swap
 └─ mtd2  arranque (uInitrd ≤3 MiB)   └─ part. 3  resto  ─┘ md2  RAID 5     ext4  "datos" → /srv/datos
@@ -54,8 +54,7 @@ NAND (flash)                         Discos (4 × WD Red 4 TB, GPT idéntica)
 * Alimentación del USB 3.0 (Etron), LED y botón de encendido.
 * Panel web **Cockpit** y **Tailscale** (incluidos en `debian/preparar-debian-dns340l.sh`; el repositorio de Tailscale tiene paquete armhf, 1.104.4 instalado sin problemas; falta probarlos con Debian arrancado).
 * Publicar `uImage` y `uInitrd` como *release*, con su código fuente.
-* Varios NAS en la misma red: la preparación ya da a cada uno su nombre (`NOMBRE`), su MAC (`MAC`) y su
-  identificador; falta que el instalador acepte discos de otros tamaños (ahora solo 4 × 4 TB WD Red).
+* Discos de más de 16 TiB en total: ahora se limita el volumen de datos; se podría dividir en dos RAID.
 
 ## Guía rápida
 
@@ -87,7 +86,7 @@ Detalle completo en **[docs/instalacion.md](docs/instalacion.md)**.
 kernel/        árbol de dispositivos, configuración de Linux 6.12 y script de compilación
 initrd/        arranque (init), modo rescate y script de compilación (BusyBox, mdadm, mke2fs)
 debian/        preparación de Debian 13 armhf (debootstrap), núcleo oficial con kexec (zz-dns340l)
-instalacion/   instalar-nas.sh (particiona, crea RAID, instala) y generador de tablas GPT
+instalacion/   instalar-nas.sh (particiona, crea RAID, instala; de 2 a 4 discos de cualquier tamaño)
 herramientas/  borrar_env.c (borra solo la zona de variables de U-Boot; ver docs/u-boot.md)
 docs/          documentación
 ```
