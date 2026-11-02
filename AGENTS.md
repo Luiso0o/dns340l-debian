@@ -39,6 +39,12 @@ docs/          documentación del hardware, U-Boot, consola serie, microcontrola
 * Debian: `sudo USUARIO=nombre bash debian/preparar-debian-dns340l.sh` en un PC Linux con
   `debootstrap` y `qemu-user-binfmt`.
 * Comprueba siempre los tamaños tras compilar: superar el límite deja el equipo sin arrancar.
+* **Límite de memoria del núcleo:** U-Boot deja el initrd en `0xF00000`. El núcleo descomprimido
+  (`_end` en `System.map`) más el `zImage` con DTB deben quedar por debajo: si no, Linux descarta el
+  initrd y entra en *kernel panic*. `compilar-nucleo.sh` lo comprueba. (El v4 lo superaba y dejó un
+  equipo sin arrancar.)
+* **Patillas:** `armada-370.dtsi` pone `uart1` en MPP41/42, que en el DNS-340L son datos de la NAND.
+  El árbol del proyecto lo redefine a MPP60/61; no lo quites.
 * El código de `initrd/` se ejecuta con **BusyBox `sh` (ash)**: nada de construcciones exclusivas de bash.
 
 ## Reglas de seguridad (obligatorias)
