@@ -52,7 +52,8 @@ printf '\372\002\000\001\000\000\373' > /dev/ttyS1    # FA 02 00 01 00 00 FB = v
 
 ## Mensajes que envía el microcontrolador
 
-Obtenido del desensamblado de `up_read_daemon` (firmware 1.08b01 de D-Link; sin confirmar todavía en vivo).
+Obtenido del desensamblado de `up_read_daemon` (firmware 1.08b01 de D-Link) y de una captura en vivo de `ttyS1`
+en un segundo DNS-340L (con `up_read_daemon` parado).
 Lee `ttyS1` byte a byte y reconoce dos formatos:
 
 * **7 bytes**: `FA b1 b2 b3 b4 b5 FB`. Identifica el mensaje por `b1 b2 b3`.
@@ -69,9 +70,21 @@ Lee `ttyS1` byte a byte y reconoce dos formatos:
 | Respuestas | `FA 03 08 00 vv .. FB`, `FA 03 09 ..`, `FA 03 02 02 ..`, `FA 03 0A 02 ..`, `FA 03 0B ..`, `FA 03 0C ..` | ThermalGet, FanStatusGet, APRStatus, WOLStatus, RPWM, RPWMClock |
 | Reloj | `FA 01 01 ii vv .. FB` | Lectura de un campo del reloj (índices de la tabla anterior) |
 
+**Captura en vivo** (unos 4 minutos, con `up_send_daemon` preguntando cada pocos segundos):
+
+```
+fa 03 09 00 00 d1 fb   FanStatusGet: estado del ventilador en el 5.º byte (d0–d3)
+fa 03 08 00 00 7a fb   ThermalGet: valor del termistor en el 5.º byte (0x7a–0x7b, se convierte con una tabla)
+fa 30 00 00 00 00 fb   ACK después de cada respuesta
+```
+
+Con **pulsaciones cortas del botón de encendido no llegó ninguna trama** `FA 21`: el botón de encendido no
+pasa por el microcontrolador (al menos en pulsación corta). Es un GPIO, como en el DNS-327L (ver
+[hardware.md](hardware.md#botones)). Una pulsación larga hace que el microcontrolador corte la corriente.
+
 `up_send_daemon` es el único que escribe en `ttyS1` en el firmware de D-Link (recibe las órdenes de
 `up_send_ctl` por una cola de mensajes System V). Para Debian bastará un único proceso que abra `ttyS1`,
-envíe las órdenes del ventilador y, al recibir `FA 21 00 00`, ejecute `systemctl poweroff`.
+envíe las órdenes del ventilador y lea las respuestas.
 
 ## Uso en este proyecto
 

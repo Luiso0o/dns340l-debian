@@ -59,8 +59,33 @@ Configuración de la placa `RD-88F6710_ALpha_DNS340L` en U-Boot y en el núcleo 
   salidas GPIO 47–59 (`0xf1018144` = `0xF0007FFF`), con valor alto en **47–51** y bajo en 52–59
   (`0xf1018140` = `0x800F8000`); bancos 0 y 2 sin salidas. Ningún script de D-Link toca GPIO para el
   USB 3.0: el Etron funciona con el controlador propio de Etron (`etxhci_hcd_131016`, dentro del núcleo).
+* **NAND:** la tabla de bloques defectuosos existe en la propia flash (dos copias, páginas 131008 y 130944,
+  versión 1). El controlador de Linux la encuentra y no necesita crearla.
 * **PCIe con el firmware de D-Link:** los dos enlaces activos (`0xf1041a04` = `0x00010000`,
   `0xf1081a04` = `0x00010100`, bit 0 = 0); Etron en el puerto 0 (bus 0), 88SE9215 en el puerto 1 (bus 1).
+  Configuración PCI leída de los dos chips:
+
+  | | Etron EJ168 (USB 3.0) | Marvell 88SE9215 (SATA) |
+  |---|---|---|
+  | Estado de energía | D0 | D0 |
+  | ASPM (ahorro de energía del enlace) | **desactivado** (admite L0s y L1) | **desactivado** |
+  | Velocidad del enlace | 2,5 GT/s ×1 (admite 5 GT/s) | 5 GT/s ×1 |
+
+  En nuestro núcleo el Etron queda inaccesible («D3cold»). Como el hardware no necesita ningún GPIO, las
+  sospechas son el arranque del enlace con el controlador PCIe actual de Linux o el ASPM (`pcie_aspm=off`).
+
+## Botones
+
+Ningún botón pasa por el microcontrolador en pulsación corta (comprobado en vivo). En el firmware de D-Link
+los vigila `chk_io`. Por analogía con el DNS-327L (mismo procesador) y por sus valores en reposo (a 1):
+
+| Botón | GPIO | Activo |
+|---|---|---|
+| Encendido | 65 (banco 2, bit 1) | bajo |
+| Reset (trasero) | 64 (banco 2, bit 0) | bajo |
+| Copia USB (delantero) | 63 (banco 1, bit 31) | bajo |
+
+Pendiente de confirmar pulsando cada botón (`evtest` en Debian, o leyendo `0xf1018150` y `0xf1018190`).
 
 ## Tamaño máximo de volumen
 
