@@ -191,6 +191,37 @@ static int lee_pagina(uint32_t pag, uint8_t *buf, int *bf)
 	return 0;
 }
 
+/* Lectura sin ECC (para diagnóstico): 2048 + 64 bytes tal cual están en la NAND.
+ * 'ra' = 1 usa el direccionamiento normal (página en los bytes 3-5), 0 el alternativo. */
+static int lee_cruda(uint32_t pag, uint8_t *buf, int ra)
+{
+	uint32_t *p = (uint32_t *)buf;
+	uint32_t ndcr = rd(NDCR), ecc = rd(NDECCCTRL), r = 0;
+	wr(NDCR, ndcr & ~NDCR_ECC_EN);
+	wr(NDECCCTRL, ecc & ~1u);
+	if (prepara()) { r = -1; goto fin; }
+	envia(CMD_TYPE(T_READ) | ADDR_CYC(5) | LEN_OVRD | DBC | CMD1(0x00) | CMD2(0x30) | XTYPE(0),
+	      ra ? pag << 16 : pag << 8, ra ? (pag >> 16) & 0xff : (pag >> 24) & 0xff, PAGINA + 64);
+	for (unsigned i = 0; i < (PAGINA + 64) / 4; i += 8) {
+		if (espera_sr(NDSR_RDDREQ, 1, 0.2, "RDDREQ (crudo)")) { r = -1; goto fin; }
+		for (unsigned k = 0; k < 8; k++)
+			p[i + k] = nfc[NDDB / 4];
+	}
+	espera_ndrun(0.2);
+fin:
+	wr(NDCR, ndcr);
+	wr(NDECCCTRL, ecc);
+	return r;
+}
+
+static void volcado(const char *t, const uint8_t *b, int n)
+{
+	printf("%s", t);
+	for (int i = 0; i < n; i++)
+		printf("%s%02x", i % 16 ? " " : "\n    ", b[i]);
+	printf("\n");
+}
+
 static int borra_bloque(uint32_t off)
 {
 	uint32_t pag = off / PAGINA;
@@ -349,6 +380,24 @@ int main(int argc, char **argv)
 		return r < 0;
 	}
 
+	if (!strcmp(argv[1], "pagina") && argc >= 3) {   /* solo lectura, diagnóstico */
+		uint32_t off = num(argv[2]);
+		uint8_t pg[PAGINA + 64];
+		abre();
+		int bf, r = lee_pagina(off / PAGINA, pg, &bf);
+		printf("Con ECC: resultado %d, bits corregidos %d, NDSR=0x%08x", r, bf, rd(NDSR));
+		volcado("", pg, 32);
+		volcado("  reserva (2048..2079):", pg + PAGINA, 32);
+		for (int ra = 1; ra >= 0; ra--) {
+			memset(pg, 0, sizeof(pg));
+			r = lee_cruda(off / PAGINA, pg, ra);
+			printf("Sin ECC, direccionamiento %s: resultado %d", ra ? "normal" : "alternativo", r);
+			volcado("", pg, 32);
+			volcado("  2048..2111:", pg + PAGINA, 64);
+		}
+		return 0;
+	}
+
 	if (!strcmp(argv[1], "leer") && argc == 5) {
 		uint32_t off = num(argv[2]), lon = num(argv[3]);
 		uint8_t *b = malloc(lon);
@@ -392,6 +441,6 @@ int main(int argc, char **argv)
 	}
 uso:
 	fprintf(stderr, "Uso:\n  nand340 info\n  nand340 leer DESPL LONGITUD FICHERO\n"
-		"  nand340 grabar DESPL FICHERO SI-GRABAR\n  nand340 prueba SI-GRABAR\n");
+		"  nand340 grabar DESPL FICHERO SI-GRABAR\n  nand340 prueba SI-GRABAR\n  nand340 pagina DESPL   (diagnóstico)\n");
 	return 2;
 }
