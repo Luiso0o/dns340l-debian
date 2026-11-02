@@ -10,11 +10,14 @@
  *   - NAND Hynix 256 MiB, BCH 4 bits, particiones como el firmware de D-Link
  *
  * No se modifica el pinmux: se respeta el que deja U-Boot.
- * Pendiente: alimentación del Etron EJ168, LED (GPIO 50, 51, 57-59), botones.
+ * Botones por GPIO como en el DNS-327L (encendido 65, reset 64, copia USB 63), pendientes de confirmar.
+ * Pendiente: alimentación del Etron EJ168, LED (GPIO 50, 51, 57-59).
  */
 
 /dts-v1/;
 
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 #include "armada-370.dtsi"
 
 / {
@@ -24,6 +27,34 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 		bootargs = "console=ttyS0,115200 loglevel=4 rdinit=/init";
+	};
+
+	/*
+	 * Botones (activos a nivel bajo, a 1 en reposo). El pinmux ya los deja como GPIO (U-Boot).
+	 * Encendido -> KEY_POWER: systemd-logind apaga de forma ordenada.
+	 * Reset y copia USB -> teclas que logind no usa (para asignarles algo más adelante).
+	 * La pulsación larga del botón de encendido la gestiona el microcontrolador (corte de corriente).
+	 */
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		power-button {
+			label = "Power Button";
+			linux,code = <KEY_POWER>;
+			gpios = <&gpio2 1 GPIO_ACTIVE_LOW>;
+		};
+
+		reset-button {
+			label = "Reset Button";
+			linux,code = <KEY_PROG1>;
+			gpios = <&gpio2 0 GPIO_ACTIVE_LOW>;
+		};
+
+		copy-button {
+			label = "USB Copy Button";
+			linux,code = <KEY_COPY>;
+			gpios = <&gpio1 31 GPIO_ACTIVE_LOW>;
+		};
 	};
 
 	memory@0 {
