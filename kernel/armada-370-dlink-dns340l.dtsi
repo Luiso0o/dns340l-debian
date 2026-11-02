@@ -98,8 +98,22 @@
 	status = "okay";
 };
 
-/* Microcontrolador Weltrend WT6701 (mismo protocolo que el DNS-320L) */
+/*
+ * Microcontrolador Weltrend WT6701 (mismo protocolo que el DNS-320L), en MPP60 (RX) y MPP61 (TX).
+ * OJO: armada-370.dtsi pone uart1 en MPP41/42 (placa de desarrollo de Marvell). En el DNS-340L esas
+ * patillas son las líneas de datos AD2/AD3 del bus de la NAND: con la asignación por defecto la NAND
+ * deja de leerse (devuelve siempre el mismo byte). Comprobado en el equipo.
+ */
+&pinctrl {
+	uart1_pins_dns340l: uart1-pins-dns340l {
+		marvell,pins = "mpp60", "mpp61";
+		marvell,function = "uart1";
+	};
+};
+
 &uart1 {
+	pinctrl-0 = <&uart1_pins_dns340l>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 

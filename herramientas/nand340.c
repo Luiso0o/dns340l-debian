@@ -282,6 +282,14 @@ static void abre(void)
 	if (b == MAP_FAILED) { perror("mmap"); exit(1); }
 	nfc = (volatile uint32_t *)(b + NFC_OFF);
 	clk = (volatile uint32_t *)(b + CLK_OFF);
+	/* Patillas MPP41/42 = AD2/AD3 del bus de la NAND (función 1). Los núcleos con el uart1 de
+	 * armada-370.dtsi las pasan a uart1 (función 2) y la NAND deja de leerse: devolverlas. */
+	volatile uint32_t *mpp5 = (volatile uint32_t *)(b + 0x18014);
+	if ((*mpp5 & 0x00000ff0u) != 0x00000110u) {
+		uint32_t nuevo = (*mpp5 & ~0x00000ff0u) | 0x00000110u;
+		printf("MPP41/42 no están en el bus de la NAND: 0x%08x -> 0x%08x\n", *mpp5, nuevo);
+		*mpp5 = nuevo;
+	}
 	if (!(*clk & CLK_NAND)) {
 		printf("Reloj de la NAND apagado: se enciende (0x%08x -> 0x%08x)\n", *clk, *clk | CLK_NAND);
 		*clk = *clk | CLK_NAND;
