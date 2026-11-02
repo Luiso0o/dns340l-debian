@@ -214,6 +214,27 @@ fin:
 	return r;
 }
 
+/* RESET (0xFF) y READ ID (0x90): comprueba que las órdenes llegan al chip (solo lectura) */
+static int identifica(void)
+{
+	uint32_t w[2];
+	if (prepara()) return -1;
+	envia(CMD_TYPE(5) | CMD1(0xff), 0, 0, 0);
+	if (espera_sr(NDSR_CMDD, 1, 0.5, "CMDD (reset)")) return -1;
+	espera_sr(NDSR_RDY, 1, 0.5, "RDY (reset)");
+	espera_ndrun(0.2);
+	if (prepara()) return -1;
+	envia(CMD_TYPE(3) | ADDR_CYC(1) | CMD1(0x90), 0, 0, 0);
+	if (espera_sr(NDSR_RDDREQ, 1, 0.5, "RDDREQ (id)")) return -1;
+	w[0] = nfc[NDDB / 4];
+	w[1] = nfc[NDDB / 4];
+	espera_ndrun(0.2);
+	uint8_t *b = (uint8_t *)w;
+	printf("ID del chip: %02x %02x %02x %02x %02x %02x (Hynix 256 MiB esperado: ad da ...)\n",
+	       b[0], b[1], b[2], b[3], b[4], b[5]);
+	return 0;
+}
+
 static void volcado(const char *t, const uint8_t *b, int n)
 {
 	printf("%s", t);
@@ -378,6 +399,19 @@ int main(int argc, char **argv)
 			if (r == 0) printf("  Nombre: %.32s\n", pg + 32);
 		}
 		return r < 0;
+	}
+
+	if (!strcmp(argv[1], "id")) {
+		abre();
+		if (identifica()) return 1;
+		uint8_t pg[PAGINA + 64];
+		int bf;
+		for (int vez = 1; vez <= 2; vez++) {
+			int r = lee_pagina(0x500000 / PAGINA, pg, &bf);
+			printf("Tras el reset, lectura %d de 0x500000: resultado %d", vez, r);
+			volcado("", pg, 16);
+		}
+		return 0;
 	}
 
 	if (!strcmp(argv[1], "pagina") && argc >= 3) {   /* solo lectura, diagnóstico */
