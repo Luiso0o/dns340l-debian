@@ -175,16 +175,22 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 
-# Al apagar: pedir al microcontrolador que corte la corriente
+# Al apagar o reiniciar: se lo pide al microcontrolador (se ejecuta con los discos ya en solo lectura).
+# El reinicio por software del SoC deja la placa colgada; MCUReset corta y devuelve la corriente
+# (probado en el equipo 2, 3-11-2026).
 mkdir -p "$DEST/usr/lib/systemd/system-shutdown"
 cat > "$DEST/usr/lib/systemd/system-shutdown/dns340l-apagar" <<'EOF'
 #!/bin/sh
-# $1 = poweroff | reboot | halt
-if [ "$1" = poweroff ] && [ -c /dev/ttyS1 ]; then
-	stty -F /dev/ttyS1 115200 cs8 -cstopb -parenb raw -echo
-	printf '\372\003\003\001\001\001\373' > /dev/ttyS1   # DeviceShutdown
-	sleep 2
-fi
+# $1 = poweroff | reboot | halt | kexec
+[ -c /dev/ttyS1 ] || exit 0
+case "$1" in
+	poweroff) orden='\003\003\001\001\001' ;;   # DeviceShutdown: corta la corriente
+	reboot)   orden='\003\003\002\001\001' ;;   # MCUReset: reinicia la placa entera
+	*)        exit 0 ;;
+esac
+stty -F /dev/ttyS1 115200 cs8 -cstopb -parenb raw -echo
+printf "\372$orden\373" > /dev/ttyS1
+sleep 5
 EOF
 chmod 755 "$DEST/usr/lib/systemd/system-shutdown/dns340l-apagar"
 

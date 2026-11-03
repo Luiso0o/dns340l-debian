@@ -34,8 +34,8 @@ printf '\372\002\000\001\000\000\373' > /dev/ttyS1    # FA 02 00 01 00 00 FB = v
 | FanLow | `02 00 03 00 00` | Velocidad baja |
 | DeviceReady | `03 01 00 00 00` | ✅ Sistema arrancado: LED de encendido fijo |
 | APREnable / APRDisable / APRStatus | `03 02 01 ..` / `03 02 00 ..` / `03 02 02 ..` | Encendido automático al volver la corriente |
-| DeviceShutdown | `03 03 01 01 01` | Apagado (corta la alimentación) |
-| MCUReset | `03 03 02 01 ..` | |
+| DeviceShutdown | `03 03 01 01 01` | ✅ Apagado (corta la alimentación) |
+| MCUReset | `03 03 02 01 01` | ✅ Reinicia la placa entera (corta y devuelve la corriente). Es la única forma de reiniciar: el reinicio por software del SoC la deja colgada |
 | DeviceShutdownByUPS | `03 03 03 01 ..` | |
 | MCUVer | `03 05 00 00 00` | Respuesta: versión `1.xx` |
 | PWRLed | `03 06 ..` | LED de encendido (parámetro: apagado / encendido / parpadeo) |
