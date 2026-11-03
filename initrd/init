@@ -124,8 +124,18 @@ sync
 umount /newroot
 mdadm --stop --scan >>$LOG 2>&1
 log "kexec: saltando al núcleo $NOMBRE de Debian ($VER)"
+# Preparar el hardware para el núcleo nuevo (probado en el DNS-340L, 3-11-2026):
+#  1. Encender todos los relojes del SoC: este núcleo apagó los que no usa ("clk: Disabling unused
+#     clocks") y el núcleo nuevo se cuelga en silencio si toca un bloque sin reloj. U-Boot los deja
+#     encendidos; los bits son los de clock-gating-control del Armada 370 (0xF1018220).
+devmem 0xf1018220 32 $(( $(devmem 0xf1018220) | 0x5282823F )) 2>>$LOG || log "AVISO: no se han podido encender los relojes"
+#  2. Borrar la copia vieja del árbol de dispositivos que dejó el descompresor de este núcleo: si el
+#     descompresor del núcleo nuevo la encuentra pegada a su final, la usa en lugar de la de kexec.
+borrar-fdt-viejo SI >>$LOG 2>&1 || log "AVISO: borrar-fdt-viejo ha fallado"
 guardar_registro
 sync
+#  3. kexec -e (sin -x) baja las interfaces de red: mvneta no tiene función de apagado y, si siguen
+#     activas, sus DMA escriben paquetes en memoria que ya es del núcleo nuevo.
 kexec -e
 # Solo se llega aquí si kexec -e falla. El fichero "intento" hará probar el otro núcleo la próxima vez.
 rescate "kexec -e ha fallado"

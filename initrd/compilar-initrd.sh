@@ -35,6 +35,8 @@ mkdir -p "$TRABAJO"; cd "$TRABAJO"
 # --- kexec estático (kexec-tools)
 [ -d kexec-tools ] || git clone --depth 1 https://github.com/horms/kexec-tools.git kexec-tools
 ( cd kexec-tools
+  # -d (depuración) no debe mandar KEXEC_DEBUG al núcleo: Linux 6.12 lo rechaza con EINVAL
+  sed -i 's/^\t\t\tkexec_flags |= KEXEC_DEBUG;/\t\t\t\/* DNS-340L: sin KEXEC_DEBUG *\//' kexec/kexec.c
   [ -f configure ] || ./bootstrap
   [ -f Makefile ] || ./configure --host=arm-linux-gnueabi --without-zlib --without-lzma LDFLAGS=-static CFLAGS=-Os
   make -j"$(nproc)" && ${CROSS}strip build/sbin/kexec )
@@ -60,6 +62,9 @@ mkdir -p "$RAIZ"/{bin,sbin,usr/bin,usr/sbin,proc,sys,dev,tmp,run,mnt/usb,newroot
 rm -f "$RAIZ/sbin/mdadm" "$RAIZ/sbin/mke2fs" "$RAIZ/sbin/mkfs.ext4"   # BusyBox instala enlaces con esos nombres
 cp mdadm/mdadm "$RAIZ/sbin/"
 cp kexec-tools/build/sbin/kexec "$RAIZ/sbin/"
+# Herramienta que borra la copia vieja del árbol de dispositivos antes de kexec -e
+${CROSS}gcc -static -Os -Wall -o "$RAIZ/sbin/borrar-fdt-viejo" "$AQUI/../herramientas/borrar-fdt-viejo.c"
+${CROSS}strip "$RAIZ/sbin/borrar-fdt-viejo"
 cp e2fsprogs/b/misc/mke2fs "$RAIZ/sbin/"; ln -sf mke2fs "$RAIZ/sbin/mkfs.ext4"
 install -m 755 "$AQUI/init" "$RAIZ/init"
 install -m 755 "$AQUI/rescate.sh" "$RAIZ/rescate.sh"

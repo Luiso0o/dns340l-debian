@@ -27,7 +27,7 @@ kernel/        árbol de dispositivos (.dtsi + -f1.dts), configuración de Linux
 initrd/        init (arranque), rescate.sh (modo rescate), compilar-initrd.sh (BusyBox, mdadm, mke2fs, kexec estáticos)
 debian/        preparar-debian-dns340l.sh (debootstrap), zz-dns340l (hook de núcleo), instalar-nucleo-debian.sh
 instalacion/   instalar-nas.sh (particiona con sfdisk, crea RAID, instala; de 2 a 4 discos de cualquier tamaño)
-herramientas/  borrar_env.c (borra solo la zona de variables de U-Boot)
+herramientas/  borrar_env.c (zona de variables de U-Boot), nand340.c, borrar-fdt-viejo.c (antes de kexec -e)
 docs/          documentación del hardware, U-Boot, consola serie, microcontrolador, instalación y rescate
 ```
 
@@ -45,6 +45,8 @@ docs/          documentación del hardware, U-Boot, consola serie, microcontrola
   equipo sin arrancar.)
 * **Patillas:** `armada-370.dtsi` pone `uart1` en MPP41/42, que en el DNS-340L son datos de la NAND.
   El árbol del proyecto lo redefine a MPP60/61; no lo quites.
+* **kexec:** antes de `kexec -e` hay que encender los relojes del SoC, borrar la copia vieja del árbol
+  de dispositivos (`borrar-fdt-viejo SI`) y no usar `-x`. Detalles en `docs/kexec.md`; no lo quites.
 * El código de `initrd/` se ejecuta con **BusyBox `sh` (ash)**: nada de construcciones exclusivas de bash.
 
 ## Reglas de seguridad (obligatorias)
