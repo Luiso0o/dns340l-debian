@@ -13,6 +13,7 @@
  * Botones por GPIO como en el DNS-327L (encendido 65, reset 64, copia USB 63), pendientes de confirmar.
  * GPIO del banco 1 identificados en el equipo 2 (3-11-2026):
  *   47, 48, 49  alimentación de las bahías (a 0 se apagan los discos): reservados aquí, siempre a 1
+ *               (árbol probado en el equipo 2 con Debian 6.12.115: hogs y LED funcionan)
  *   50 / 59     LED de encendido blanco / naranja (activos a nivel alto)
  *   51          luz de actividad de los discos (sin confirmar), a 1 como en el firmware de D-Link
  *   58          LED de encendido: a 1 deja de parpadear (sin confirmar)
