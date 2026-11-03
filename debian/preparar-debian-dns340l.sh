@@ -77,10 +77,11 @@ LABEL=datos        /srv/datos   ext4  defaults,noatime,nofail    0 2
 EOF
 mkdir -p "$DEST/srv/datos"
 
+# HTTPS: algunos cortafuegos cortan las descargas de paquetes por HTTP (visto en el equipo 2)
 cat > "$DEST/etc/apt/sources.list" <<'EOF'
-deb http://deb.debian.org/debian trixie main contrib non-free-firmware
-deb http://deb.debian.org/debian trixie-updates main contrib non-free-firmware
-deb http://security.debian.org/debian-security trixie-security main contrib non-free-firmware
+deb https://deb.debian.org/debian trixie main contrib non-free-firmware
+deb https://deb.debian.org/debian trixie-updates main contrib non-free-firmware
+deb https://security.debian.org/debian-security trixie-security main contrib non-free-firmware
 EOF
 
 # Red: DHCP en el primer puerto (MAC propia, ver los ficheros .link de arriba).

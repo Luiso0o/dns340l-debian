@@ -19,10 +19,10 @@ con **Linux 6.12 LTS**, **RAID por software (`mdadm`)** y **SSH**.
 | USB 2.0 (los dos puertos traseros) | ✅ |
 | Ventilador, encendido y apagado (microcontrolador Weltrend) | ✅ protocolo documentado, servicio para Debian |
 | Temperatura de la CPU | ✅ |
-| USB 3.0 delantero (Etron EJ168) | ❌ el chip queda sin alimentación (falta localizar su GPIO) |
+| USB 3.0 delantero (Etron EJ168) | 🟡 funciona tras `kexec` (núcleo de Debian); con el arranque directo de U-Boot queda sin alimentación |
 | LED | 🟡 GPIO localizados, sin asignar |
-| Botón de encendido (aviso del microcontrolador) | 🟡 pendiente |
-| Arranque de Debian desde el RAID con `kexec` (núcleo y arranque v4) | 🟡 en pruebas |
+| Botón de encendido / reinicio | 🟡 botones detectados (gpio-keys); `poweroff` apaga por el microcontrolador; **`reboot` se cuelga** (pendiente) |
+| Arranque de Debian desde el RAID con `kexec` (núcleo v5 + arranque v6) | ✅ probado en el equipo 2 (3-11-2026): enciende y arranca Debian 13 solo |
 
 ## Cómo queda el sistema
 
@@ -49,9 +49,11 @@ NAND (flash)                         Discos (2-4, GPT idéntica; aquí 4 × 4 TB
 
 ## Próximos pasos
 
-* Probar el núcleo y el arranque v4 cargándolos en RAM desde U-Boot (consola serie) y, si funcionan, grabarlos.
-* Probar en el equipo el salto con `kexec` al núcleo oficial de Debian.
-* Alimentación del USB 3.0 (Etron), LED y botón de encendido.
+* `reboot`: el reinicio por software del SoC deja la placa colgada; reiniciar a través del microcontrolador.
+* Que Cockpit (`udisksd`) no bloquee el apagado mientras se reconstruye un RAID (de momento:
+  `systemctl start poweroff.target`).
+* Equipo 1: sin arranque (núcleo v4 grabado) y sin consola serie de entrada; aparcado.
+* LED y botón de encendido.
 * Panel web **Cockpit** y **Tailscale** (incluidos en `debian/preparar-debian-dns340l.sh`; el repositorio de Tailscale tiene paquete armhf, 1.104.4 instalado sin problemas; falta probarlos con Debian arrancado).
 * Publicar `uImage` y `uInitrd` como *release*, con su código fuente.
 * Discos de más de 16 TiB en total: ahora se limita el volumen de datos; se podría dividir en dos RAID.
