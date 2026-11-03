@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Instalación de Debian 13 en el DNS-340L desde el MODO RESCATE.
 # BORRA LOS DISCOS SATA DEL NAS. Uso (por Telnet o consola serie, desde la carpeta de la memoria USB):
-#   sh instalar-nas.sh
+#   sh instalar-nas.sh                 (instalación completa: borra los discos)
+#   SOLO_SISTEMA=1 sh instalar-nas.sh  (solo el sistema: conserva intercambio y datos)
 # Ficheros necesarios junto a este script:
 #   dns340l-debian.tar.gz y sfdisk (estático, lo genera initrd/compilar-initrd.sh)
 #
@@ -32,12 +33,82 @@ paso() { echo; echo "=== $*"; }
 fallo() { echo; echo "*** ERROR: $* ***"; echo "No se ha completado la instalación."; exit 1; }
 gib() { echo "$(( $1 / GIB )) GiB"; }
 
+# Descomprime Debian en el RAID del sistema ($1, ya formateado) y prepara su arranque
+instalar_sistema() {
+	paso "Instalando Debian en $1 (tarda unos minutos)"
+	mkdir -p /newroot
+	mount -t ext4 "$1" /newroot
+	tar -xzpf dns340l-debian.tar.gz -C /newroot
+	[ -e /newroot/sbin/init ] || [ -L /newroot/sbin/init ] || fallo "no se ha extraído bien el sistema"
+
+	paso "Preparando el arranque de Debian para estos RAID"
+	# Sin las líneas ARRAY, el initramfs de Debian no ensambla el RAID del sistema y no arranca
+	# (probado en el DNS-340L, equipo 2). El .tar se genera en un PC sin discos, así que se añaden aquí.
+	mdadm --detail --scan | sed 's/ spares=[0-9]*//' >> /newroot/etc/mdadm/mdadm.conf
+	grep ARRAY /newroot/etc/mdadm/mdadm.conf
+	# Diagnóstico sin consola serie: el initramfs de Debian manda los mensajes del núcleo por la red
+	# (UDP 6666 a toda la red desde 192.168.1.250; se ven con Wireshark). Ver docs/kexec.md.
+	if ! grep -q '^netconsole' /newroot/etc/initramfs-tools/modules 2>/dev/null; then
+		cat >> /newroot/etc/initramfs-tools/modules <<-'EOF2'
+	# DNS-340L: mensajes del arranque por la red (diagnóstico)
+	mvmdio
+	marvell
+	mvneta
+	netconsole netconsole=6665@192.168.1.250/eth0,6666@255.255.255.255/ff:ff:ff:ff:ff:ff
+	EOF2
+	fi
+	if ls /newroot/boot/vmlinuz-* >/dev/null 2>&1; then
+		for d in proc sys dev; do mount --bind /$d /newroot/$d; done
+		chroot /newroot /usr/bin/env PATH=/usr/sbin:/usr/bin:/sbin:/bin update-initramfs -u -k all || \
+			echo "AVISO: update-initramfs ha fallado; el arranque de Debian puede no encontrar el RAID"
+		for d in dev sys proc; do umount /newroot/$d; done
+	else
+		echo "AVISO: el sistema no trae núcleo de Debian (/boot/vmlinuz-*); no podrá arrancar con kexec"
+	fi
+	sync
+	umount /newroot
+}
+
 paso "Comprobaciones previas"
 command -v mdadm  >/dev/null || fallo "no encuentro mdadm (cópialo junto al script)"
 command -v mke2fs >/dev/null || fallo "no encuentro mke2fs (cópialo junto al script)"
 if [ -f sfdisk ]; then chmod +x sfdisk 2>/dev/null || true; fi
 command -v sfdisk >/dev/null || fallo "no encuentro sfdisk (cópialo junto al script)"
 [ -f dns340l-debian.tar.gz ] || fallo "falta el fichero dns340l-debian.tar.gz"
+
+# ---------- Solo el sistema: conserva los RAID de intercambio y de datos ----------
+# Uso: SOLO_SISTEMA=1 sh instalar-nas.sh
+# Para discos ya instalados con este proyecto (etiquetas debian-raiz, swap y datos): formatea solo
+# el RAID del sistema y vuelve a instalar Debian. Evita reconstruir el RAID de datos.
+if [ "${SOLO_SISTEMA:-0}" = 1 ]; then
+	paso "Reinstalar solo el sistema (el intercambio y los datos no se tocan)"
+	echo 'DEVICE partitions' > /tmp/mdadm-instalar.conf
+	mdadm --assemble --scan --config=/tmp/mdadm-instalar.conf 2>/dev/null || true
+	sleep 2; mdev -s
+	for l in debian-raiz swap datos; do
+		d=$(findfs LABEL=$l 2>/dev/null) || fallo "no encuentro LABEL=$l: los discos no tienen la estructura de este proyecto; usa la instalación completa (sin SOLO_SISTEMA)"
+		echo "   LABEL=$l -> $d"
+	done
+	ROOTDEV=$(findfs LABEL=debian-raiz)
+	case "$ROOTDEV" in /dev/md*) ;; *) fallo "LABEL=debian-raiz no está en un RAID ($ROOTDEV)" ;; esac
+	for m in $(grep "^$ROOTDEV " /proc/mounts | cut -d' ' -f2); do umount "$m" || fallo "no se puede desmontar $m"; done
+	grep -q "^$ROOTDEV " /proc/mounts && fallo "$ROOTDEV sigue montado"
+	cat /proc/mdstat
+	echo
+	echo "Se va a BORRAR el sistema de $ROOTDEV y a instalar Debian de nuevo."
+	echo "El intercambio y el RAID de datos (LABEL=datos) no se tocan."
+	printf "Escribe BORRAR para continuar: "
+	read r
+	[ "$r" = BORRAR ] || fallo "cancelado por el usuario"
+	paso "Formateando el sistema"
+	mke2fs -F -t ext4 -L debian-raiz "$ROOTDEV"
+	instalar_sistema "$ROOTDEV"
+	paso "SISTEMA REINSTALADO"
+	cat /proc/mdstat
+	echo
+	echo "Siguiente paso: quitar la memoria USB (o el fichero RESCATE) y apagar y encender."
+	exit 0
+fi
 
 # Discos SATA de las bahías (nunca la memoria USB: se distinguen por la ruta en /sys)
 DISCOS=""; N=0; MIN=0
@@ -164,38 +235,7 @@ mke2fs -F -t ext4 -L debian-raiz /dev/md0
 mkswap -L swap /dev/md1
 mke2fs -F -t ext4 -L datos -m 0 -E lazy_itable_init=1,lazy_journal_init=1 /dev/md2
 
-paso "Instalando Debian en md0 (tarda unos minutos)"
-mkdir -p /newroot
-mount -t ext4 /dev/md0 /newroot
-tar -xzpf dns340l-debian.tar.gz -C /newroot
-[ -e /newroot/sbin/init ] || [ -L /newroot/sbin/init ] || fallo "no se ha extraído bien el sistema"
-
-paso "Preparando el arranque de Debian para estos RAID"
-# Sin las líneas ARRAY, el initramfs de Debian no ensambla el RAID del sistema y no arranca
-# (probado en el DNS-340L, equipo 2). El .tar se genera en un PC sin discos, así que se añaden aquí.
-mdadm --detail --scan | sed 's/ spares=[0-9]*//' >> /newroot/etc/mdadm/mdadm.conf
-grep ARRAY /newroot/etc/mdadm/mdadm.conf
-# Diagnóstico sin consola serie: el initramfs de Debian manda los mensajes del núcleo por la red
-# (UDP 6666 a toda la red desde 192.168.1.250; se ven con Wireshark). Ver docs/kexec.md.
-if ! grep -q '^netconsole' /newroot/etc/initramfs-tools/modules 2>/dev/null; then
-	cat >> /newroot/etc/initramfs-tools/modules <<'EOF2'
-# DNS-340L: mensajes del arranque por la red (diagnóstico)
-mvmdio
-marvell
-mvneta
-netconsole netconsole=6665@192.168.1.250/eth0,6666@255.255.255.255/ff:ff:ff:ff:ff:ff
-EOF2
-fi
-if ls /newroot/boot/vmlinuz-* >/dev/null 2>&1; then
-	for d in proc sys dev; do mount --bind /$d /newroot/$d; done
-	chroot /newroot /usr/bin/env PATH=/usr/sbin:/usr/bin:/sbin:/bin update-initramfs -u -k all || \
-		echo "AVISO: update-initramfs ha fallado; el arranque de Debian puede no encontrar el RAID"
-	for d in dev sys proc; do umount /newroot/$d; done
-else
-	echo "AVISO: el sistema no trae núcleo de Debian (/boot/vmlinuz-*); no podrá arrancar con kexec"
-fi
-sync
-umount /newroot
+instalar_sistema /dev/md0
 
 paso "INSTALACIÓN TERMINADA"
 cat /proc/mdstat
