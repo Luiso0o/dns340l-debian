@@ -81,7 +81,7 @@ fa 30 00 00 00 00 fb   ACK después de cada respuesta
 Con **pulsaciones cortas del botón de encendido no llegó ninguna trama** `FA 21`.
 
 **Prueba en el equipo 2 con Debian (3-11-2026):** la recepción por `ttyS1` funciona (a `MCUVer` contesta
-`FA 03 05 00 01 06 FB` y `FA 30 … FB`), pero el botón de encendido, ni corto ni mantenido 6 segundos,
+`FA 03 05 00 01 06 FB` y `FA 30 … FB`), pero el botón de encendido, ni corto ni mantenido 15 segundos,
 **no manda nada por `ttyS1`, no cambia ningún GPIO de entrada libre (tampoco el 65) ni corta la
 corriente**. Con Debian el botón solo sirve para encender. Pendiente: averiguar si el microcontrolador
 necesita alguna orden previa para avisar, o si va a una patilla configurada con otra función.
