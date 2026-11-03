@@ -52,8 +52,23 @@ Configuración de la placa `RD-88F6710_ALpha_DNS340L` en U-Boot y en el núcleo 
 * **MPP** (registros `0xf1018000`–`0xf1018020`): `0x11101111 0x11111111 0x22222111 0x02222222 0x11111110 0x01111111 0x00000000 0x00220000 0x00000000`.
   MPP 47–59 son GPIO; MPP 60–61 son `uart1` (microcontrolador).
 * **Salidas** (banco 1): GPIO 47–59.
-* **Valores iniciales**: U-Boot deja a 1 los GPIO **48, 49, 50**; el núcleo de D-Link pone a 1 los **47, 48, 49** (y 50 a 0). La función de 47–49 no se ha identificado (no alimentan bahías: las 4 funcionan sin tocarlos).
-* **LED**: el programa `led` de D-Link escribe en los registros `0x18140` (salida) y `0x18148` (parpadeo) los bits 18, 19, 25, 26 y 27 → **GPIO 50, 51, 57, 58, 59**.
+* **Valores iniciales**: U-Boot deja a 1 los GPIO **48, 49, 50**; el núcleo de D-Link pone a 1 los **47, 48, 49** (y 50 a 0).
+* **GPIO 47–49 = alimentación de las bahías** (probado en el equipo 2, 3-11-2026): al ponerlos a 0 los
+  cuatro discos se quedan sin corriente al instante. Seguramente sirven para el arranque escalonado de los
+  discos. El árbol de dispositivos los reserva (`gpio-hog`) siempre a 1. **No los toques.**
+* **LED**: el programa `led` de D-Link escribe en los registros `0x18140` (salida) y `0x18148` (parpadeo) los bits 18, 19, 25, 26 y 27 → **GPIO 50, 51, 57, 58, 59**. Probado en el equipo 2:
+
+  | GPIO | Función |
+  |---|---|
+  | 50 | LED de encendido blanco (1 = encendido) |
+  | 59 | LED de encendido naranja (1 = encendido) |
+  | 58 | LED de encendido: a 1 deja de parpadear (sin confirmar) |
+  | 51 | luz de actividad (naranja) de los discos, sin confirmar; a 1 como en el firmware de D-Link |
+  | 57 | sin efecto visible |
+
+  Los LED de las bahías (blanco = disco bien, naranja parpadeando = actividad, naranja fijo = fallo,
+  según el manual de D-Link) los maneja la controladora SATA.
+* **USB 3.0 delantero**: funciona a 5 Gbps con el núcleo de Debian arrancado con kexec (no necesita GPIO).
 * Valor alto en GPIO 4 (banco 0) y GPIO 65 (banco 2) en ambos casos.
 * **Firmware de D-Link en marcha** (segundo equipo, leído con `devmem`): MPP idéntico al anterior;
   salidas GPIO 47–59 (`0xf1018144` = `0xF0007FFF`), con valor alto en **47–51** y bajo en 52–59

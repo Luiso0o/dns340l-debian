@@ -11,13 +11,20 @@
  *
  * No se modifica el pinmux: se respeta el que deja U-Boot.
  * Botones por GPIO como en el DNS-327L (encendido 65, reset 64, copia USB 63), pendientes de confirmar.
- * Pendiente: alimentación del Etron EJ168, LED (GPIO 50, 51, 57-59).
+ * GPIO del banco 1 identificados en el equipo 2 (3-11-2026):
+ *   47, 48, 49  alimentación de las bahías (a 0 se apagan los discos): reservados aquí, siempre a 1
+ *   50 / 59     LED de encendido blanco / naranja (activos a nivel alto)
+ *   51          luz de actividad de los discos (sin confirmar), a 1 como en el firmware de D-Link
+ *   58          LED de encendido: a 1 deja de parpadear (sin confirmar)
+ *   57          sin efecto visible
+ * El USB 3.0 delantero (Etron EJ168) funciona a 5 Gbps con el núcleo de Debian arrancado con kexec.
  */
 
 /dts-v1/;
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
+#include <dt-bindings/leds/common.h>
 #include "armada-370.dtsi"
 
 / {
@@ -58,6 +65,25 @@
 			label = "USB Copy Button";
 			linux,code = <KEY_COPY>;
 			gpios = <&gpio1 31 GPIO_ACTIVE_LOW>;
+		};
+	};
+
+	/* LED de encendido (el parpadeo naranja al arrancar lo pone el microcontrolador) */
+	gpio-leds {
+		compatible = "gpio-leds";
+
+		led-power-white {
+			function = LED_FUNCTION_POWER;
+			color = <LED_COLOR_ID_WHITE>;
+			gpios = <&gpio1 18 GPIO_ACTIVE_HIGH>;	/* GPIO 50 */
+			default-state = "on";
+		};
+
+		led-power-orange {
+			function = LED_FUNCTION_POWER;
+			color = <LED_COLOR_ID_AMBER>;
+			gpios = <&gpio1 27 GPIO_ACTIVE_HIGH>;	/* GPIO 59 */
+			default-state = "off";
 		};
 	};
 
@@ -209,5 +235,26 @@
 				read-only;
 			};
 		};
+	};
+};
+
+/*
+ * Salidas fijas, reservadas para que nada las cambie (gpioset da «Device or resource busy»).
+ * ¡Cuidado! Poner a 0 los GPIO 47-49 corta la corriente a los discos (probado: los cuatro se
+ * desconectaron y el sistema se quedó sin disco).
+ */
+&gpio1 {
+	alimentacion-bahias-hog {
+		gpio-hog;
+		gpios = <15 GPIO_ACTIVE_HIGH>, <16 GPIO_ACTIVE_HIGH>, <17 GPIO_ACTIVE_HIGH>;	/* GPIO 47-49 */
+		output-high;
+		line-name = "alimentacion-bahias";
+	};
+
+	luz-discos-hog {
+		gpio-hog;
+		gpios = <19 GPIO_ACTIVE_HIGH>;	/* GPIO 51 */
+		output-high;
+		line-name = "luz-actividad-discos";
 	};
 };
