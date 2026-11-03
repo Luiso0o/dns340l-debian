@@ -55,7 +55,8 @@ NAND (flash)                         Discos (2-4, GPT idéntica; aquí 4 × 4 TB
 * El reinicio que hace el propio núcleo (p. ej. tras un *kernel panic* con `panic=`) sigue colgándose: solo `reboot` desde Debian pasa por el microcontrolador.
 * Que Cockpit (`udisksd`) no bloquee el apagado mientras se reconstruye un RAID (de momento:
   `systemctl start poweroff.target`).
-* Equipo 1: sin arranque (núcleo v4 grabado) y sin consola serie de entrada; aparcado.
+* Equipo 1: recuperado el 3-11-2026 por la consola serie (la RX es la patilla separada del conector);
+  núcleo v5 y arranque v6 grabados; falta instalar Debian en sus discos.
 * Botón de encendido: con Debian no llega a Linux (ni GPIO ni microcontrolador) ni apaga; solo enciende.
   Botones de reset y copia USB: llegan como teclas (gpio-keys), sin función asignada.
 * Modo rescate del arranque v6 (fichero `RESCATE` en la memoria USB) sin probar.

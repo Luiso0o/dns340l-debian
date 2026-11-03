@@ -17,7 +17,8 @@ mkdir -p "$TRABAJO"; cd "$TRABAJO"
 [ -d busybox ] || git clone --depth 1 -b 1_36_1 https://github.com/mirror/busybox.git busybox
 ( cd busybox
   make ARCH=arm CROSS_COMPILE=$CROSS defconfig >/dev/null
-  sed -i -e 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/' -e 's/^CONFIG_TC=y/# CONFIG_TC is not set/' .config
+  sed -i -e 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/' -e 's/^CONFIG_TC=y/# CONFIG_TC is not set/' \
+      -e 's/^# CONFIG_FLASH_ERASEALL is not set/CONFIG_FLASH_ERASEALL=y/' .config
   (set +o pipefail; yes "" | make ARCH=arm CROSS_COMPILE=$CROSS oldconfig >/dev/null)
   make -j"$(nproc)" ARCH=arm CROSS_COMPILE=$CROSS )
 
