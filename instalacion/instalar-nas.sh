@@ -169,6 +169,31 @@ mkdir -p /newroot
 mount -t ext4 /dev/md0 /newroot
 tar -xzpf dns340l-debian.tar.gz -C /newroot
 [ -e /newroot/sbin/init ] || [ -L /newroot/sbin/init ] || fallo "no se ha extraído bien el sistema"
+
+paso "Preparando el arranque de Debian para estos RAID"
+# Sin las líneas ARRAY, el initramfs de Debian no ensambla el RAID del sistema y no arranca
+# (probado en el DNS-340L, equipo 2). El .tar se genera en un PC sin discos, así que se añaden aquí.
+mdadm --detail --scan | sed 's/ spares=[0-9]*//' >> /newroot/etc/mdadm/mdadm.conf
+grep ARRAY /newroot/etc/mdadm/mdadm.conf
+# Diagnóstico sin consola serie: el initramfs de Debian manda los mensajes del núcleo por la red
+# (UDP 6666 a toda la red desde 192.168.1.250; se ven con Wireshark). Ver docs/kexec.md.
+if ! grep -q '^netconsole' /newroot/etc/initramfs-tools/modules 2>/dev/null; then
+	cat >> /newroot/etc/initramfs-tools/modules <<'EOF2'
+# DNS-340L: mensajes del arranque por la red (diagnóstico)
+mvmdio
+marvell
+mvneta
+netconsole netconsole=6665@192.168.1.250/eth0,6666@255.255.255.255/ff:ff:ff:ff:ff:ff
+EOF2
+fi
+if ls /newroot/boot/vmlinuz-* >/dev/null 2>&1; then
+	for d in proc sys dev; do mount --bind /$d /newroot/$d; done
+	chroot /newroot /usr/bin/env PATH=/usr/sbin:/usr/bin:/sbin:/bin update-initramfs -u -k all || \
+		echo "AVISO: update-initramfs ha fallado; el arranque de Debian puede no encontrar el RAID"
+	for d in dev sys proc; do umount /newroot/$d; done
+else
+	echo "AVISO: el sistema no trae núcleo de Debian (/boot/vmlinuz-*); no podrá arrancar con kexec"
+fi
 sync
 umount /newroot
 
@@ -176,5 +201,4 @@ paso "INSTALACIÓN TERMINADA"
 cat /proc/mdstat
 echo
 echo "El RAID de datos se sincroniza en segundo plano (con discos grandes puede tardar muchas horas)."
-echo "Siguiente paso: instalar el núcleo de Debian (debian/instalar-nucleo-debian.sh), borrar el"
-echo "fichero RESCATE de la memoria USB y reiniciar con: reboot"
+echo "Siguiente paso: borrar el fichero RESCATE de la memoria USB (si lo hay) y apagar y encender."

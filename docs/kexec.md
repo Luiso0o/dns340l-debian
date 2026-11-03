@@ -4,9 +4,14 @@ El núcleo de la flash arranca el núcleo de Debian con `kexec`. En el DNS-340L 
 preparativos antes de `kexec -e`; sin ellos el núcleo nuevo se cuelga o arranca con datos viejos.
 `initrd/init` los hace siempre.
 
-**Probado en un DNS-340L (equipo 2) el 3-11-2026**, saltando del núcleo 6.12 de la flash al mismo
-núcleo con un initrd de prueba: arranca completo, usa la línea de órdenes de kexec, desempaqueta el
-initrd, ejecuta `/init` y contesta en la red. Todavía **no probado** saltando al núcleo de Debian.
+**Probado en un DNS-340L (equipo 2) el 3-11-2026**, a mano desde el sistema de prueba de la flash:
+* al mismo núcleo 6.12 con un initrd de prueba: arranca completo y contesta en la red;
+* al núcleo oficial de Debian `6.12.107+deb13-armmp` con su initramfs: ensambla los RAID, arranca
+  systemd, monta el RAID de datos y entra por SSH.
+Todavía **no probado**: el arranque automático con el `uInitrd` v6 grabado en la flash.
+
+Además, el initramfs de Debian necesita las líneas `ARRAY` en `/etc/mdadm/mdadm.conf` (sin ellas no
+encuentra el RAID del sistema y no arranca). `instalar-nas.sh` las añade y regenera el initramfs.
 
 ## 1. Encender todos los relojes del SoC
 

@@ -113,7 +113,8 @@ VER=$(cat $K/version$SUF 2>/dev/null)
 
 # ---------- Salto con kexec ----------
 # panic=20: si el initramfs de Debian no encuentra la raíz, reinicia en vez de quedarse parado
-ARGS="console=ttyS0,115200 root=LABEL=debian-raiz ro rootwait panic=20 $(cat $K/cmdline 2>/dev/null)"
+# net.ifnames=0: la red se llama eth0 (netconsole del initramfs de Debian y systemd-networkd la buscan así)
+ARGS="console=ttyS0,115200 root=LABEL=debian-raiz ro rootwait panic=20 net.ifnames=0 $(cat $K/cmdline 2>/dev/null)"
 log "kexec: cargando el núcleo $NOMBRE de Debian ($VER)"
 kexec -l $K/vmlinuz$SUF --initrd=$K/initrd.img$SUF --dtb=$K/dtb$SUF --command-line="$ARGS" >>$LOG 2>&1 || \
 	rescate "kexec -l no ha podido cargar el núcleo $NOMBRE ($VER); detalle arriba"
