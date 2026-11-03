@@ -21,7 +21,8 @@ con **Linux 6.12 LTS**, **RAID por software (`mdadm`)** y **SSH**.
 | Temperatura de la CPU | ✅ |
 | USB 3.0 delantero (Etron EJ168) | ✅ 5 Gbps con el núcleo de Debian (arrancado con kexec) |
 | LED | ✅ encendido blanco/naranja en `/sys/class/leds/` (`white:power`, `amber:power`); los de las bahías los lleva la controladora SATA |
-| Botón de encendido / reinicio | 🟡 botones detectados (gpio-keys); `poweroff` y `reboot` pasan por el microcontrolador ✅ |
+| Apagado y reinicio | ✅ `poweroff` y `reboot` pasan por el microcontrolador |
+| Botones | 🟡 reset y copia USB llegan a Linux; el de encendido solo enciende (no avisa a Linux) |
 | Arranque de Debian desde el RAID con `kexec` (núcleo v5 + arranque v6) | ✅ probado en el equipo 2 (3-11-2026): enciende y arranca Debian 13 solo |
 | Cockpit (panel web, puerto 9090) y Tailscale | ✅ probados en el equipo 2 |
 | Actualización del núcleo de Debian con `apt` | ✅ probada: 6.12.107 → 6.12.115, preparada sola por `zz-dns340l` y arrancada con kexec |
@@ -55,7 +56,8 @@ NAND (flash)                         Discos (2-4, GPT idéntica; aquí 4 × 4 TB
 * Que Cockpit (`udisksd`) no bloquee el apagado mientras se reconstruye un RAID (de momento:
   `systemctl start poweroff.target`).
 * Equipo 1: sin arranque (núcleo v4 grabado) y sin consola serie de entrada; aparcado.
-* Botón de encendido: comprobar que una pulsación corta apaga de forma ordenada.
+* Botón de encendido: con Debian no llega a Linux (ni GPIO ni microcontrolador) ni apaga; solo enciende.
+  Botones de reset y copia USB: llegan como teclas (gpio-keys), sin función asignada.
 * Modo rescate del arranque v6 (fichero `RESCATE` en la memoria USB) sin probar.
 * Publicar `uImage` y `uInitrd` como *release*, con su código fuente.
 * Discos de más de 16 TiB en total: ahora se limita el volumen de datos; se podría dividir en dos RAID.

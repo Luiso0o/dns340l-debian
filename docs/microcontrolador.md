@@ -78,9 +78,13 @@ fa 03 08 00 00 7a fb   ThermalGet: valor del termistor en el 5.º byte (0x7a–0
 fa 30 00 00 00 00 fb   ACK después de cada respuesta
 ```
 
-Con **pulsaciones cortas del botón de encendido no llegó ninguna trama** `FA 21`: el botón de encendido no
-pasa por el microcontrolador (al menos en pulsación corta). Es un GPIO, como en el DNS-327L (ver
-[hardware.md](hardware.md#botones)). Una pulsación larga hace que el microcontrolador corte la corriente.
+Con **pulsaciones cortas del botón de encendido no llegó ninguna trama** `FA 21`.
+
+**Prueba en el equipo 2 con Debian (3-11-2026):** la recepción por `ttyS1` funciona (a `MCUVer` contesta
+`FA 03 05 00 01 06 FB` y `FA 30 … FB`), pero el botón de encendido, ni corto ni mantenido 6 segundos,
+**no manda nada por `ttyS1`, no cambia ningún GPIO de entrada libre (tampoco el 65) ni corta la
+corriente**. Con Debian el botón solo sirve para encender. Pendiente: averiguar si el microcontrolador
+necesita alguna orden previa para avisar, o si va a una patilla configurada con otra función.
 
 `up_send_daemon` es el único que escribe en `ttyS1` en el firmware de D-Link (recibe las órdenes de
 `up_send_ctl` por una cola de mensajes System V). Para Debian bastará un único proceso que abra `ttyS1`,

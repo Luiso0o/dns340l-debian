@@ -10,7 +10,8 @@
  *   - NAND Hynix 256 MiB, BCH 4 bits, particiones como el firmware de D-Link
  *
  * No se modifica el pinmux: se respeta el que deja U-Boot.
- * Botones por GPIO como en el DNS-327L (encendido 65, reset 64, copia USB 63), pendientes de confirmar.
+ * Botones por GPIO: reset (64) y copia USB (63) probados en el equipo 2. El de encendido NO está en el
+ * GPIO 65 (no genera interrupciones): se deja declarado por si acaso, sin efecto.
  * GPIO del banco 1 identificados en el equipo 2 (3-11-2026):
  *   47, 48, 49  alimentación de las bahías (a 0 se apagan los discos): reservados aquí, siempre a 1
  *               (árbol probado en el equipo 2 con Debian 6.12.115: hogs y LED funcionan)
