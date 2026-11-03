@@ -6,8 +6,8 @@
 #   sudo USUARIO=tu_usuario bash preparar-debian-dns340l.sh
 # Opcional: COCKPIT=0, TAILSCALE=0, NUCLEO=0, NOMBRE=nas2 (nombre del equipo), MAC=02:d3:40:xx:xx:xx.
 # Para varios NAS en la misma red, prepara un .tar por equipo: cada uno con su NOMBRE y su MAC
-# (si no se indica MAC, se genera una al azar). Para el núcleo de Debian, deja junto a este script
-# zz-dns340l y armada-370-dlink-dns340l.dtb (lo genera kernel/compilar-nucleo.sh).
+# (si no se indica MAC, se genera una al azar). Para el núcleo de Debian hacen falta, junto a este
+# script, zz-dns340l y armada-370-dlink-dns340l.dtb (los dos van en el repositorio).
 # Resultado: ~/dns340l-debian.tar.gz  (se copia a una memoria USB para el NAS)
 set -euo pipefail
 

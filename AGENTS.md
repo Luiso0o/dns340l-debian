@@ -64,7 +64,9 @@ docs/          documentación del hardware, U-Boot, consola serie, microcontrola
 
 ## Qué no se sube al repositorio
 
-* Binarios compilados (`uImage`, `uInitrd`, `.dtb`, el `.tar` de Debian): van en *releases* con su código fuente.
+* Binarios compilados (`uImage`, `uInitrd`, el `.tar` de Debian): van en *releases* con su código fuente.
+  Excepción: `debian/armada-370-dlink-dns340l.dtb` (13 KiB, lo necesita `preparar-debian-dns340l.sh`);
+  se regenera con `kernel/compilar-nucleo.sh` y hay que actualizarlo en el mismo commit si cambia el `.dtsi`.
 * Copias de la flash, firmware o binarios de D-Link.
 * Contraseñas, hashes de contraseñas, claves SSH, claves de Tailscale, IP o MAC reales del usuario.
 
