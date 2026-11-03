@@ -80,6 +80,7 @@ command -v sfdisk >/dev/null || fallo "no encuentro sfdisk (cópialo junto al sc
 # Uso: SOLO_SISTEMA=1 sh instalar-nas.sh
 # Para discos ya instalados con este proyecto (etiquetas debian-raiz, swap y datos): formatea solo
 # el RAID del sistema y vuelve a instalar Debian. Evita reconstruir el RAID de datos.
+# Probado en el equipo 1 (3-11-2026).
 if [ "${SOLO_SISTEMA:-0}" = 1 ]; then
 	paso "Reinstalar solo el sistema (el intercambio y los datos no se tocan)"
 	echo 'DEVICE partitions' > /tmp/mdadm-instalar.conf

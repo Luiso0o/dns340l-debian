@@ -25,6 +25,7 @@ con **Linux 6.12 LTS**, **RAID por software (`mdadm`)** y **SSH**.
 | Botones | 🟡 reset y copia USB llegan a Linux; el de encendido solo enciende (no avisa a Linux) |
 | Arranque de Debian desde el RAID con `kexec` (núcleo v5 + arranque v6) | ✅ probado en el equipo 2 (3-11-2026): enciende y arranca Debian 13 solo |
 | Cockpit (panel web, puerto 9090) y Tailscale | ✅ probados en el equipo 2 |
+| Los dos equipos | ✅ 3-11-2026: equipo 2 instalado de cero; equipo 1 recuperado por la consola serie y reinstalado con `SOLO_SISTEMA=1` (conserva el RAID de datos) |
 | Actualización del núcleo de Debian con `apt` | ✅ probada: 6.12.107 → 6.12.115, preparada sola por `zz-dns340l` y arrancada con kexec |
 
 ## Cómo queda el sistema
@@ -55,8 +56,6 @@ NAND (flash)                         Discos (2-4, GPT idéntica; aquí 4 × 4 TB
 * El reinicio que hace el propio núcleo (p. ej. tras un *kernel panic* con `panic=`) sigue colgándose: solo `reboot` desde Debian pasa por el microcontrolador.
 * Que Cockpit (`udisksd`) no bloquee el apagado mientras se reconstruye un RAID (de momento:
   `systemctl start poweroff.target`).
-* Equipo 1: recuperado el 3-11-2026 por la consola serie (la RX es la patilla separada del conector);
-  núcleo v5 y arranque v6 grabados; falta instalar Debian en sus discos.
 * Botón de encendido: con Debian no llega a Linux (ni GPIO ni microcontrolador) ni apaga; solo enciende.
   Botones de reset y copia USB: llegan como teclas (gpio-keys), sin función asignada.
 * Modo rescate del arranque v6 (fichero `RESCATE` en la memoria USB) sin probar.
