@@ -26,7 +26,11 @@
 
 	chosen {
 		stdout-path = "serial0:115200n8";
-		bootargs = "console=ttyS0,115200 loglevel=4 rdinit=/init";
+		/*
+		 * netconsole: los mensajes del núcleo (también un kernel panic) se envían por difusión UDP
+		 * al puerto 6666 de la red local; en un PC basta con "nc -u -l 6666". Sirve sin consola serie.
+		 */
+		bootargs = "console=ttyS0,115200 loglevel=7 rdinit=/init netconsole=6665@192.168.1.250/eth0,6666@255.255.255.255/ff:ff:ff:ff:ff:ff";
 	};
 
 	/*
