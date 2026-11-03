@@ -46,7 +46,7 @@ Sin confirmar. Si la consola no recibe, la alternativa es grabar la flash por SS
 
 ## Entrar en U-Boot
 
-Encender el NAS y pulsar una tecla durante la cuenta atrás. Aparece `Marvell>>`.
+Encender el NAS y pulsar la tecla `1` durante la cuenta atrás (las demás no la paran, ver [u-boot.md](u-boot.md)). Aparece `Marvell>>`.
 U-Boot: `U-Boot 2011.12 (Mar 10 2014) Marvell version: v2011.12 2013_Q1.2`.
 
 **Prueba de bucle del adaptador (3-11-2026):** con TX y RX del adaptador USB-serie unidos, PuTTY
