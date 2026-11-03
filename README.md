@@ -23,6 +23,7 @@ con **Linux 6.12 LTS**, **RAID por software (`mdadm`)** y **SSH**.
 | LED | 🟡 GPIO localizados, sin asignar |
 | Botón de encendido / reinicio | 🟡 botones detectados (gpio-keys); `poweroff` apaga por el microcontrolador; **`reboot` se cuelga** (pendiente) |
 | Arranque de Debian desde el RAID con `kexec` (núcleo v5 + arranque v6) | ✅ probado en el equipo 2 (3-11-2026): enciende y arranca Debian 13 solo |
+| Cockpit (panel web, puerto 9090) y Tailscale | ✅ probados en el equipo 2 |
 
 ## Cómo queda el sistema
 
@@ -54,7 +55,6 @@ NAND (flash)                         Discos (2-4, GPT idéntica; aquí 4 × 4 TB
   `systemctl start poweroff.target`).
 * Equipo 1: sin arranque (núcleo v4 grabado) y sin consola serie de entrada; aparcado.
 * LED y botón de encendido.
-* Panel web **Cockpit** y **Tailscale** (incluidos en `debian/preparar-debian-dns340l.sh`; el repositorio de Tailscale tiene paquete armhf, 1.104.4 instalado sin problemas; falta probarlos con Debian arrancado).
 * Publicar `uImage` y `uInitrd` como *release*, con su código fuente.
 * Discos de más de 16 TiB en total: ahora se limita el volumen de datos; se podría dividir en dos RAID.
 
