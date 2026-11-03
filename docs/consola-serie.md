@@ -48,3 +48,9 @@ Sin confirmar. Si la consola no recibe, la alternativa es grabar la flash por SS
 
 Encender el NAS y pulsar una tecla durante la cuenta atrás. Aparece `Marvell>>`.
 U-Boot: `U-Boot 2011.12 (Mar 10 2014) Marvell version: v2011.12 2013_Q1.2`.
+
+**Prueba de bucle del adaptador (3-11-2026):** con TX y RX del adaptador USB-serie unidos, PuTTY
+(control de flujo «None») muestra lo que se escribe: el adaptador envía y recibe bien. El fallo de
+entrada del equipo 1 está en la placa. Sin entrada por la consola no se puede parar U-Boot ni usar
+TFTP, `rcvr` ni `kwboot`; mantener reset al encender tampoco activa la recuperación. El equipo 1
+queda como repuesto (su flash conserva U-Boot y la partición `rescue` originales).
