@@ -94,4 +94,5 @@ envíe las órdenes del ventilador y lea las respuestas.
 
 * `initrd/init`: DeviceReady y ventilador a media al arrancar.
 * `initrd/rescate.sh`: ventilador al máximo (señal de modo rescate) y a media al obtener IP.
-* Debian: servicio `dns340l-ventilador` (por temperatura de discos y CPU) y `system-shutdown/dns340l-apagar` (DeviceShutdown al apagar).
+* Debian: servicio `dns340l-ventilador` (por temperatura de discos y CPU) y `system-shutdown/dns340l-apagar`
+  (DeviceShutdown al apagar y MCUReset al reiniciar).

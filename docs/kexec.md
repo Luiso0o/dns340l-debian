@@ -1,62 +1,62 @@
-# kexec en el DNS-340L
+# kexec on the DNS-340L
 
-El núcleo de la flash arranca el núcleo de Debian con `kexec`. En el DNS-340L hacen falta tres
-preparativos antes de `kexec -e`; sin ellos el núcleo nuevo se cuelga o arranca con datos viejos.
-`initrd/init` los hace siempre.
+The flash kernel starts Debian's kernel with `kexec`. On the DNS-340L three preparations are needed before
+`kexec -e`; without them the new kernel hangs or boots with stale data. `initrd/init` always does them.
 
-**Probado en un DNS-340L (equipo 2) el 3-11-2026**, a mano desde el sistema de prueba de la flash:
-* al mismo núcleo 6.12 con un initrd de prueba: arranca completo y contesta en la red;
-* al núcleo oficial de Debian `6.12.107+deb13-armmp` con su initramfs: ensambla los RAID, arranca
-  systemd, monta el RAID de datos y entra por SSH.
-Todavía **no probado**: el arranque automático con el `uInitrd` v6 grabado en la flash.
+**Tested on both units on 3 November 2026**: by hand from the flash test system (to the same 6.12 kernel and
+to Debian's `6.12.107+deb13-armmp`), and automatically with the v6 `uInitrd` written to flash.
 
-Además, el initramfs de Debian necesita las líneas `ARRAY` en `/etc/mdadm/mdadm.conf` (sin ellas no
-encuentra el RAID del sistema y no arranca). `instalar-nas.sh` las añade y regenera el initramfs.
+Debian's initramfs also needs the `ARRAY` lines in `/etc/mdadm/mdadm.conf` (without them it does not find the
+system RAID and does not boot). `instalar-nas.sh` adds them and regenerates the initramfs.
 
-## 1. Encender todos los relojes del SoC
+## 1. Turn on all SoC clocks
 
-El núcleo de la flash apaga al arrancar los relojes que no usa (`clk: Disabling unused clocks`):
-audio, los dos SATA internos, SD y TDM. U-Boot los deja todos encendidos. Si el núcleo nuevo toca un
-bloque sin reloj antes de encenderlo, se cuelga sin dar ningún mensaje.
+When it boots, the flash kernel gates the clocks it does not use (`clk: Disabling unused clocks`): audio, the
+two internal SATA ports, SD and TDM. U-Boot leaves them all on. If the new kernel touches a block without a
+clock before enabling it, it hangs without any message.
 
 ```sh
 devmem 0xf1018220 32 $(( $(devmem 0xf1018220) | 0x5282823F ))
 ```
 
-`0xF1018220` es `clock-gating-control` del Armada 370; la máscara reúne los bits de
-`drivers/clk/mvebu/armada-370.c` (0–5, 9, 15, 17, 23, 25, 28, 30). Con Linux 6.12 el valor pasa de
-`0xB1CC423E` a `0xF3CEC23F`.
+`0xF1018220` is the Armada 370 `clock-gating-control` register; the mask gathers the bits from
+`drivers/clk/mvebu/armada-370.c` (0–5, 9, 15, 17, 23, 25, 28, 30). With Linux 6.12 the value goes from
+`0xB1CC423E` to `0xF3CEC23F`.
 
-## 2. Borrar la copia vieja del árbol de dispositivos
+## 2. Erase the stale copy of the device tree
 
-El núcleo de la flash lleva el árbol añadido al final del zImage. Su descompresor lo mezcla con los
-ATAG de U-Boot (línea `root=/dev/ram` e initrd en `0xF00040`) y lo deja en la RAM justo detrás del
-núcleo (en el equipo probado, en `0x00D31320`). Si el zImage que se lanza con kexec se descomprime en
-el mismo sitio, su descompresor se reubica en esa zona, encuentra la copia vieja pegada a su `_edata`,
-la toma por un árbol añadido y **descarta el que le pasa kexec**: se ve la línea de órdenes vieja y
-`Initramfs unpacking failed: invalid magic`. Borrar los ATAG de `0x100` no lo arregla.
+The flash kernel has its device tree appended to the zImage. Its decompressor merges it with U-Boot's ATAGs
+(command line `root=/dev/ram` and initrd at `0xF00040`) and leaves it in RAM right after the kernel (at
+`0x00D31320` on the tested unit). If the zImage started with kexec decompresses to the same place, its
+decompressor relocates itself into that area, finds the stale copy right at its `_edata`, takes it for an
+appended device tree and **discards the one passed by kexec**: you see the old command line and
+`Initramfs unpacking failed: invalid magic`. Clearing the ATAGs at `0x100` does not help.
 
-`herramientas/borrar-fdt-viejo.c` busca en `/dev/mem` las copias idénticas a `/sys/firmware/fdt` y
-borra su marca (`borrar-fdt-viejo SI`). El árbol que prepara kexec es distinto y no lo toca.
+`herramientas/borrar-fdt-viejo.c` searches `/dev/mem` for exact copies of `/sys/firmware/fdt` and erases
+their magic number (`borrar-fdt-viejo SI`). The tree prepared by kexec is different and is not touched.
 
-## 3. Bajar la red antes del salto
+## 3. Bring the network down before the jump
 
-`mvneta` (red del Armada 370) no tiene función de apagado: si las interfaces siguen activas, la
-tarjeta sigue copiando paquetes en memoria que ya es del núcleo nuevo. `kexec -e` sin `-x` baja las
-interfaces antes del salto; no uses `-x` salvo para depurar.
+`mvneta` (the Armada 370 network driver) has no shutdown function: if the interfaces stay up, the hardware
+keeps copying packets into memory that now belongs to the new kernel. `kexec -e` without `-x` brings the
+interfaces down before jumping; do not use `-x` except for debugging.
 
-## Depuración sin consola serie
+## Debugging without a serial console
 
-* `netconsole` del núcleo de la flash envía a `255.255.255.255` desde `192.168.1.250`: Windows
-  descarta esos paquetes, pero Wireshark los ve (filtro `udp.port == 6666`, *Seguir → Secuencia UDP*).
-* `echo 1 > /sys/module/kernel/parameters/initcall_debug` muestra cada dispositivo al apagarse.
-* `kexec -e -x` mantiene la red hasta `Bye!` (solo para ver los últimos mensajes del núcleo viejo).
-* El kexec del proyecto acepta `-d`: se ha quitado la marca `KEXEC_DEBUG`, que Linux 6.12 rechaza.
-* Para comprobar si el salto en sí funciona sin depender de Linux: una imagen mínima con cabecera de
-  zImage que mande al microcontrolador la orden de apagado (`FA 03 03 01 01 01 FB` por UART1).
+* The flash kernel's `netconsole` sends to `255.255.255.255` from `192.168.1.250`: Windows drops those
+  packets, but Wireshark sees them (filter `udp.port == 6666`, *Follow → UDP Stream*). When a console
+  registers, it replays the whole kernel log from the start.
+* Debian's initramfs loads `netconsole` too (added by `instalar-nas.sh`, see `/etc/initramfs-tools/modules`).
+* `echo 1 > /sys/module/kernel/parameters/initcall_debug` prints each device as it is shut down.
+* `kexec -e -x` keeps the network up until `Bye!` (only to see the last messages of the old kernel).
+* The project's kexec accepts `-d`: the `KEXEC_DEBUG` flag, which Linux 6.12 rejects, has been removed.
+* To check whether the jump itself works without depending on Linux: a minimal image with a zImage header that
+  sends the power-off command to the microcontroller (`FA 03 03 01 01 01 FB` on UART1).
 
-## Pendiente
+## Known issues
 
-* `reboot` se queda en `reboot: Restarting system`: el reinicio por software del SoC no vuelve a
-  arrancar la placa. Habrá que reiniciar a través del microcontrolador.
-* Tras kexec, el USB 3.0 delantero (Etron EJ168) sí funciona (`Host supports USB 3.0 SuperSpeed`).
+* The SoC's software reset (`reboot: Restarting system`) leaves the board hung. Debian reboots through the
+  microcontroller (`MCUReset`, see [microcontroller.md](microcontroller.md)), but a reboot issued by the
+  kernel itself (e.g. after a *kernel panic* with `panic=`) still hangs.
+
+After kexec, the front USB 3.0 (Etron EJ168) works (`Host supports USB 3.0 SuperSpeed`).

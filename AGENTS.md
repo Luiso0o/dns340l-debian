@@ -28,7 +28,8 @@ initrd/        init (arranque), rescate.sh (modo rescate), compilar-initrd.sh (B
 debian/        preparar-debian-dns340l.sh (debootstrap), zz-dns340l (hook de núcleo), instalar-nucleo-debian.sh
 instalacion/   instalar-nas.sh (particiona con sfdisk, crea RAID, instala; de 2 a 4 discos de cualquier tamaño)
 herramientas/  borrar_env.c (zona de variables de U-Boot), nand340.c, borrar-fdt-viejo.c (antes de kexec -e)
-docs/          documentación del hardware, U-Boot, consola serie, microcontrolador, instalación y rescate
+docs/          documentación en inglés (hardware, U-Boot, consola serie, microcontrolador, kexec, instalación, rescate)
+docs/es/       la misma documentación en español; README.md (inglés) y README.es.md (español)
 ```
 
 ## Compilación
@@ -72,8 +73,10 @@ docs/          documentación del hardware, U-Boot, consola serie, microcontrola
 
 ## Estilo
 
-* Documentación, comentarios y mensajes de los scripts **en español**, evitando anglicismos cuando hay
-  palabra española (núcleo, arranque, consola serie, memoria USB…).
+* Documentación **bilingüe**: inglés como principal (`README.md`, `docs/*.md`) y copia en español
+  (`README.es.md`, `docs/es/*.md`). Si cambias un documento, actualiza las dos versiones en el mismo commit.
+* Comentarios del código y mensajes de los scripts **en español**, evitando anglicismos cuando hay palabra
+  española (núcleo, arranque, consola serie, memoria USB…).
 * Cabecera `SPDX-License-Identifier: GPL-2.0-or-later` en scripts y código; el árbol de dispositivos
   usa `(GPL-2.0+ OR MIT)`.
 * Scripts con `set -e`, mensajes de paso claros y fallos que expliquen qué hacer.
@@ -81,7 +84,7 @@ docs/          documentación del hardware, U-Boot, consola serie, microcontrola
 
 ## Pendiente (por si quieres ayudar)
 
-* Alimentación del USB 3.0 delantero (Etron EJ168, queda en D3cold): localizar el GPIO.
-* LED (GPIO 50, 51, 57–59) y botón de encendido (aviso del microcontrolador por `ttyS1`).
+* Botón de encendido: con Debian no avisa a Linux (ni GPIO ni `ttyS1`); ver `docs/microcontroller.md`.
+* Reinicio hecho por el propio núcleo (p. ej. tras `panic=`): el reinicio por software del SoC cuelga la placa.
 * Reducir el initramfs de Debian.
-* Ver el protocolo del microcontrolador en `docs/microcontrolador.md` (tramas `FA` + 5 bytes + `FB`).
+* **GPIO 47–49 alimentan las bahías**: están reservados en el árbol de dispositivos; no los cambies.

@@ -1,107 +1,106 @@
-# Hardware del DNS-340L (revisión A1)
+# DNS-340L hardware (revision A1)
 
-Datos obtenidos del firmware 1.08b01 (`dmesg`, `lspci`, `/proc/mtd`), del U-Boot original y de pruebas con Linux 6.12.
+Data obtained from firmware 1.08b01 (`dmesg`, `lspci`, `/proc/mtd`), from the original U-Boot and from tests
+with Linux 6.12.
 
-![Placa](img/placa.jpg)
+![Board](img/placa.jpg)
 
-## Componentes
+## Components
 
-| Componente | Detalle |
+| Component | Details |
 |---|---|
-| Procesador | Marvell Armada 370 (88F6707), núcleo PJ4B ARMv7, 1,2 GHz |
-| Memoria | 512 MiB DDR3 (SK hynix) |
-| Flash | NAND Hynix 256 MiB (ID `0xad 0xda`), página 2 KiB, bloque 128 KiB, ECC BCH 4 bits |
-| Registros internos | `0xf1000000` (así los deja U-Boot) |
-| SATA | **Marvell 88SE9215** (PCIe `1b4b:9215`), AHCI, 4 puertos a 6 Gbps → las 4 bahías |
-| SATA interno del Armada | 2 puertos (`sata_mv`), sin conectar |
-| USB 3.0 | **Etron EJ168** (PCIe `1b6f:7023`) → puerto delantero azul. En Linux 6.12 queda en D3cold (sin alimentación) |
-| USB 2.0 | Controladores internos `f1050000` (bus 1) y `f1051000` (bus 2) → los dos puertos traseros |
-| Red | 2 × `mvneta` con PHY **Marvell 88E1510** (id `0x01410dd1`) en las direcciones MDIO **0** (eth0) y **1** (eth1), modo `rgmii-id` |
-| Microcontrolador | **Weltrend WT6701** en `ttyS1` a 115200 → ventilador, botón, LED de encendido, reloj, encendido programado. Ver [microcontrolador.md](microcontrolador.md) |
-| I2C | Dispositivo en `0x4a` (el firmware de D-Link lo registra como `cs42l51`, herencia de la placa de referencia). `mcu_upgrade` usa `/dev/i2c-0` para reprogramar el microcontrolador |
-| Reloj interno | El RTC del Armada no funciona ("not ticking"); el reloj lo lleva el microcontrolador |
-| Consola | `ttyS0`, 115200 8N1. Conector de 3 pines en el centro de la placa ([consola-serie.md](consola-serie.md)) |
+| Processor | Marvell Armada 370 (88F6707), PJ4B ARMv7 core, 1.2 GHz |
+| Memory | 512 MiB DDR3 (SK hynix) |
+| Flash | Hynix 256 MiB NAND (ID `0xad 0xda`), 2 KiB pages, 128 KiB blocks, 4-bit BCH ECC |
+| Internal registers | `0xf1000000` (as U-Boot leaves them) |
+| SATA | **Marvell 88SE9215** (PCIe `1b4b:9215`), AHCI, 4 ports at 6 Gbps → the 4 bays. A plain controller: the RAID is done in software |
+| Armada internal SATA | 2 ports (`sata_mv`), not connected |
+| USB 3.0 | **Etron EJ168** (PCIe `1b6f:7023`) → blue front port. Works at 5 Gbps with Debian's kernel started with kexec; when booting directly from U-Boot it stays in D3cold |
+| USB 2.0 | Internal controllers `f1050000` (bus 1) and `f1051000` (bus 2) → the two rear ports |
+| Network | 2 × `mvneta` with **Marvell 88E1510** PHY (id `0x01410dd1`) at MDIO addresses **0** (eth0) and **1** (eth1), `rgmii-id` mode |
+| Microcontroller | **Weltrend WT6701** on `ttyS1` at 115200 → fan, power LED, clock, scheduled power-on, power off and reset. See [microcontroller.md](microcontroller.md) |
+| I2C | Device at `0x4a` (the D-Link firmware registers it as `cs42l51`, inherited from the reference board). `mcu_upgrade` uses `/dev/i2c-0` to reprogram the microcontroller |
+| Internal clock | The Armada RTC does not work ("not ticking"); the microcontroller keeps the time |
+| Console | `ttyS0`, 115200 8N1. Three pins plus a separate hole in the middle of the board; RX is the separate hole ([serial-console.md](serial-console.md)) |
 
 ## PCIe
 
 ```
-00:01.0  puerto PCIe 0  →  01:00.0  Etron EJ168 (xHCI)
-00:02.0  puerto PCIe 1  →  02:00.0  Marvell 88SE9215 (AHCI)
+00:01.0  PCIe port 0  →  01:00.0  Etron EJ168 (xHCI)
+00:02.0  PCIe port 1  →  02:00.0  Marvell 88SE9215 (AHCI)
 ```
 
-## Particiones de la NAND (firmware de D-Link)
+## NAND partitions (D-Link firmware)
 
-| mtd | Nombre | Desplazamiento | Tamaño | Uso con este proyecto |
+| mtd | Name | Offset | Size | Use in this project |
 |---|---|---|---|---|
-| mtd0 | u-Boot | `0x0000000` | 5 MiB | U-Boot original. **No tocar.** Variables en `0x400000` (512 KiB) |
-| mtd1 | uImage | `0x0500000` | 5 MiB | **Núcleo Linux 6.12** (U-Boot lee 4 MiB) |
-| mtd2 | ramdisk | `0x0a00000` | 5 MiB | **Arranque / rescate** (U-Boot lee 3 MiB) |
-| mtd3 | image.cfs | `0x0f00000` | 206 MiB | Sistema de D-Link (sin uso) |
-| mtd4 | rescue firmware | `0xdd00000` | 15 MiB | Recuperación de D-Link (sin uso) |
-| mtd5 | config | `0xec00000` | 10 MiB | Configuración de D-Link (UBIFS) |
+| mtd0 | u-boot | `0x0000000` | 5 MiB | Original U-Boot. **Do not touch.** Variables at `0x400000` (512 KiB) |
+| mtd1 | uImage | `0x0500000` | 5 MiB | **Linux 6.12 kernel** (U-Boot reads 4 MiB) |
+| mtd2 | ramdisk | `0x0a00000` | 5 MiB | **Boot / rescue program** (U-Boot reads 3 MiB) |
+| mtd3 | image.cfs | `0x0f00000` | 206 MiB | D-Link system (unused) |
+| mtd4 | rescue firmware | `0xdd00000` | 15 MiB | D-Link recovery (unused, kept read-only) |
+| mtd5 | config | `0xec00000` | 10 MiB | D-Link configuration (UBIFS) |
 | mtd6 | mydlink | `0xf600000` | 10 MiB | mydlink (UBIFS) |
 
-Observaciones:
-* La unidad analizada tenía 10 bloques defectuosos; uno en `0x920000`, dentro de `mtd1` pero fuera de los 4 MiB que lee U-Boot.
-* La partición `config` registraba **~70 000 ciclos de borrado** por bloque: el firmware de D-Link escribe en ella continuamente. Otro motivo para no usar la NAND en Debian.
+Notes:
+* The analysed unit had 10 bad blocks; one at `0x920000`, inside `mtd1` but beyond the 4 MiB that U-Boot reads.
+* The `config` partition showed **~70,000 erase cycles** per block: the D-Link firmware writes to it
+  continuously. Another reason not to use the NAND from Debian.
+* The bad block table lives in the flash itself (two copies, pages 131008 and 130944, version 1). Linux finds
+  it and does not need to create it.
 
-## GPIO y MPP
+## GPIO and MPP
 
-Configuración de la placa `RD-88F6710_ALpha_DNS340L` en U-Boot y en el núcleo de D-Link (idéntica salvo lo indicado):
+Configuration of the `RD-88F6710_ALpha_DNS340L` board in U-Boot and in D-Link's kernel (identical except where
+noted):
 
-* **MPP** (registros `0xf1018000`–`0xf1018020`): `0x11101111 0x11111111 0x22222111 0x02222222 0x11111110 0x01111111 0x00000000 0x00220000 0x00000000`.
-  MPP 47–59 son GPIO; MPP 60–61 son `uart1` (microcontrolador).
-* **Salidas** (banco 1): GPIO 47–59.
-* **Valores iniciales**: U-Boot deja a 1 los GPIO **48, 49, 50**; el núcleo de D-Link pone a 1 los **47, 48, 49** (y 50 a 0).
-* **GPIO 47–49 = alimentación de las bahías** (probado en el equipo 2, 3-11-2026): al ponerlos a 0 los
-  cuatro discos se quedan sin corriente al instante. Seguramente sirven para el arranque escalonado de los
-  discos. El árbol de dispositivos los reserva (`gpio-hog`) siempre a 1. **No los toques.**
-* **LED**: el programa `led` de D-Link escribe en los registros `0x18140` (salida) y `0x18148` (parpadeo) los bits 18, 19, 25, 26 y 27 → **GPIO 50, 51, 57, 58, 59**. Probado en el equipo 2:
+* **MPP** (registers `0xf1018000`–`0xf1018020`): `0x11101111 0x11111111 0x22222111 0x02222222 0x11111110 0x01111111 0x00000000 0x00220000 0x00000000`.
+  MPP 47–59 are GPIOs; MPP 60–61 are `uart1` (microcontroller). Note: `armada-370.dtsi` puts `uart1` on
+  MPP41/42, which are NAND data lines on this board; the project's device tree moves it to MPP60/61.
+* **Outputs** (bank 1): GPIO 47–59.
+* **Initial values**: U-Boot sets GPIOs **48, 49, 50** to 1; D-Link's kernel sets **47, 48, 49** to 1 (and 50 to 0).
+* **GPIO 47–49 = power for the bays** (tested on unit 2): setting them to 0 instantly cuts the power to all
+  four disks. They are probably meant for staggered disk spin-up. The device tree reserves them (`gpio-hog`),
+  always at 1. **Do not touch them.**
+* **LEDs**: D-Link's `led` program writes bits 18, 19, 25, 26 and 27 of registers `0x18140` (output) and
+  `0x18148` (blink) → **GPIO 50, 51, 57, 58, 59**. Tested on unit 2:
 
-  | GPIO | Función |
+  | GPIO | Function |
   |---|---|
-  | 50 | LED de encendido blanco (1 = encendido) |
-  | 59 | LED de encendido naranja (1 = encendido) |
-  | 58 | LED de encendido: a 1 deja de parpadear (sin confirmar) |
-  | 51 | luz de actividad (naranja) de los discos, sin confirmar; a 1 como en el firmware de D-Link |
-  | 57 | sin efecto visible |
+  | 50 | white power LED (1 = on) |
+  | 59 | orange power LED (1 = on) |
+  | 58 | power LED: at 1 it stops blinking (unconfirmed) |
+  | 51 | orange disk activity light, unconfirmed; set to 1 as in the D-Link firmware |
+  | 57 | no visible effect |
 
-  Los LED de las bahías (blanco = disco bien, naranja parpadeando = actividad, naranja fijo = fallo,
-  según el manual de D-Link) los maneja la controladora SATA.
-* **USB 3.0 delantero**: funciona a 5 Gbps con el núcleo de Debian arrancado con kexec (no necesita GPIO).
-* Valor alto en GPIO 4 (banco 0) y GPIO 65 (banco 2) en ambos casos.
-* **Firmware de D-Link en marcha** (segundo equipo, leído con `devmem`): MPP idéntico al anterior;
-  salidas GPIO 47–59 (`0xf1018144` = `0xF0007FFF`), con valor alto en **47–51** y bajo en 52–59
-  (`0xf1018140` = `0x800F8000`); bancos 0 y 2 sin salidas. Ningún script de D-Link toca GPIO para el
-  USB 3.0: el Etron funciona con el controlador propio de Etron (`etxhci_hcd_131016`, dentro del núcleo).
-* **NAND:** la tabla de bloques defectuosos existe en la propia flash (dos copias, páginas 131008 y 130944,
-  versión 1). El controlador de Linux la encuentra y no necesita crearla.
-* **PCIe con el firmware de D-Link:** los dos enlaces activos (`0xf1041a04` = `0x00010000`,
-  `0xf1081a04` = `0x00010100`, bit 0 = 0); Etron en el puerto 0 (bus 0), 88SE9215 en el puerto 1 (bus 1).
-  Configuración PCI leída de los dos chips:
+  The bay LEDs (white = disk OK, blinking orange = activity, steady orange = failure, according to D-Link's
+  manual) are driven by the SATA controller.
+* High value on GPIO 4 (bank 0) and GPIO 65 (bank 2) in both cases.
+* **D-Link firmware running** (second unit, read with `devmem`): same MPP as above; outputs GPIO 47–59
+  (`0xf1018144` = `0xF0007FFF`), high on **47–51** and low on 52–59 (`0xf1018140` = `0x800F8000`); banks 0
+  and 2 without outputs. No D-Link script touches GPIOs for USB 3.0: the Etron runs with Etron's own driver
+  (`etxhci_hcd_131016`, built into the kernel).
+* **PCIe with the D-Link firmware:** both links up (`0xf1041a04` = `0x00010000`, `0xf1081a04` = `0x00010100`,
+  bit 0 = 0); Etron on port 0 (bus 0), 88SE9215 on port 1 (bus 1). PCI configuration read from both chips:
 
   | | Etron EJ168 (USB 3.0) | Marvell 88SE9215 (SATA) |
   |---|---|---|
-  | Estado de energía | D0 | D0 |
-  | ASPM (ahorro de energía del enlace) | **desactivado** (admite L0s y L1) | **desactivado** |
-  | Velocidad del enlace | 2,5 GT/s ×1 (admite 5 GT/s) | 5 GT/s ×1 |
+  | Power state | D0 | D0 |
+  | ASPM (link power saving) | **disabled** (supports L0s and L1) | **disabled** |
+  | Link speed | 2.5 GT/s ×1 (supports 5 GT/s) | 5 GT/s ×1 |
 
-  En nuestro núcleo el Etron queda inaccesible («D3cold»). Como el hardware no necesita ningún GPIO, las
-  sospechas son el arranque del enlace con el controlador PCIe actual de Linux o el ASPM (`pcie_aspm=off`).
+## Buttons
 
-## Botones
+Tested on unit 2 with Debian, counting interrupts in `/proc/interrupts`:
 
-Ningún botón pasa por el microcontrolador en pulsación corta (comprobado en vivo). En el firmware de D-Link
-los vigila `chk_io`. Por analogía con el DNS-327L (mismo procesador) y por sus valores en reposo (a 1):
-
-| Botón | GPIO | Activo |
+| Button | GPIO | Result |
 |---|---|---|
-| Encendido | 65 (banco 2, bit 1) | bajo |
-| Reset (trasero) | 64 (banco 2, bit 0) | bajo |
-| Copia USB (delantero) | 63 (banco 1, bit 31) | bajo |
+| Reset (rear) | 64 (bank 2, bit 0), active low | ✅ reaches Linux (`gpio-keys`, `KEY_PROG1`) |
+| USB copy (front) | 63 (bank 1, bit 31), active low | ✅ reaches Linux (`gpio-keys`, `KEY_COPY`) |
+| Power | — | ❌ does not change GPIO 65 or any free input, sends nothing on `ttyS1` and, held for 15 s, does not power off. With Debian it only powers the unit on |
 
-Pendiente de confirmar pulsando cada botón (`evtest` en Debian, o leyendo `0xf1018150` y `0xf1018190`).
+## Maximum volume size
 
-## Tamaño máximo de volumen
-
-El núcleo es de **32 bits**: un dispositivo de bloques no puede superar **16 TiB**. Con 4 × 4 TB en RAID 5 (10,9 TiB) no hay problema; con discos de 8 TB, `instalar-nas.sh` limita el volumen de datos a 16 TiB y lo avisa (aprovecharlo entero exigiría dividir los datos en dos RAID).
+The kernel is **32-bit**: a block device cannot exceed **16 TiB**. With 4 × 4 TB in RAID 5 (10.9 TiB) there
+is no problem; with 8 TB disks, `instalar-nas.sh` caps the data volume at 16 TiB and warns about it (using all
+of it would require splitting the data into two RAIDs).
