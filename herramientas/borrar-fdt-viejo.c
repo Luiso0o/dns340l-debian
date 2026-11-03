@@ -38,7 +38,7 @@ int main(int argc, char **argv)
 	unsigned char *fdt, *inv;
 	size_t n = 0, cap = 65536;
 	unsigned long base;
-	int f, m, encontradas = 0;
+	int f, m, encontradas = 0, distintas = 0;
 	ssize_t r;
 
 	f = open("/sys/firmware/fdt", O_RDONLY);
@@ -76,7 +76,7 @@ int main(int argc, char **argv)
 			for (i = 4; i < n; i++)
 				if ((p[o + i] ^ 0xff) != inv[i]) break;
 			if (i != n) {
-				printf("  0x%08lx: árbol de dispositivos distinto (no se toca)\n", base + o);
+				distintas++;   /* otros árboles (p. ej. los .dtb de Debian en la caché): no se tocan */
 				continue;
 			}
 			encontradas++;
@@ -92,6 +92,7 @@ int main(int argc, char **argv)
 		munmap(p, tam);
 	}
 	close(m);
-	printf("%d copia(s) encontrada(s)%s\n", encontradas, borrar ? " y borrada(s)" : "");
+	printf("%d copia(s) encontrada(s)%s; %d árbol(es) distinto(s) sin tocar\n",
+	       encontradas, borrar ? " y borrada(s)" : "", distintas);
 	return 0;
 }
