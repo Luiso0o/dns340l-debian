@@ -1,0 +1,40 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Comprobación de Nagios para los RAID por software (mdadm) del DNS-340L.
+#   OK       todos los RAID completos
+#   WARNING  alguno se está sincronizando o reconstruyendo (sin discos fallidos)
+#   CRITICAL algún RAID degradado sin reconstrucción en marcha, con un disco fallido (F) o inactivo
+#   UNKNOWN  no se puede leer /proc/mdstat o no hay RAID
+# Uso: check_md_raid [/proc/mdstat]
+F=${1:-/proc/mdstat}
+[ -r "$F" ] || { echo "UNKNOWN - no puedo leer $F"; exit 3; }
+awk '
+/^md[0-9]+ *:/ {
+	md=$1; lista[++n]=md
+	if ($3 != "active") inactivo[md]=1
+	if ($0 ~ /\(F\)/) fallido[md]=1
+	next
+}
+md != "" && /\[[U_]+\]/ { match($0, /\[[U_]+\]/); estado[md]=substr($0, RSTART, RLENGTH); next }
+md != "" && /(resync|recovery|reshape|check) *=/ {
+	match($0, /(resync|recovery|reshape|check) *= *[0-9.]+%/); p=substr($0, RSTART, RLENGTH); gsub(/ /, "", p)
+	if (match($0, /finish=[0-9.]+min/)) p=p " " substr($0, RSTART, RLENGTH)
+	progreso[md]=p; next
+}
+md != "" && /resync=(DELAYED|PENDING)/ { progreso[md]="sincronización pendiente"; next }
+END {
+	if (n == 0) { print "UNKNOWN - no hay RAID en " FILENAME; exit 3 }
+	r=0
+	for (i=1; i<=n; i++) {
+		m=lista[i]; t=m " " estado[m]
+		if (inactivo[m])                          { t=t " INACTIVO"; c=2 }
+		else if (fallido[m])                      { t=t " DISCO FALLIDO"; c=2 }
+		else if (estado[m] ~ /_/ && progreso[m]=="") { t=t " DEGRADADO"; c=2 }
+		else if (progreso[m] != "")               { t=t " " progreso[m]; c=1 }
+		else c=0
+		if (c > r) r=c
+		txt=txt (i>1 ? "; " : "") t
+	}
+	split("OK WARNING CRITICAL", nombre, " ")
+	print nombre[r+1] " - " txt; exit r
+}' "$F"

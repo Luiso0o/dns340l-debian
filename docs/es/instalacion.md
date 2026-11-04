@@ -157,3 +157,19 @@ corte la corriente (`DeviceShutdown`) o que reinicie la placa entera (`MCUReset`
 del propio procesador deja la placa colgada, así que el núcleo no debe reiniciar por su cuenta. Mientras se
 reconstruye un RAID, Cockpit bloquea el apagado normal: usa `systemctl start poweroff.target` o
 `systemctl start reboot.target`.
+
+## Vigilar los RAID con Nagios
+
+`debian/check_md_raid` es una comprobación de Nagios que lee `/proc/mdstat`: OK si todos los RAID están
+completos, WARNING mientras alguno se sincroniza o reconstruye, CRITICAL si alguno está degradado sin
+reconstrucción, tiene un disco fallido o está inactivo. En el NAS, con NRPE:
+
+```sh
+sudo apt install nagios-nrpe-server
+sudo install -m 755 check_md_raid /usr/local/lib/nagios/check_md_raid
+echo 'command[check_raid]=/usr/local/lib/nagios/check_md_raid' | sudo tee /etc/nagios/nrpe.d/dns340l.cfg
+# en /etc/nagios/nrpe.cfg: allowed_hosts=127.0.0.1,<IP del servidor Nagios>
+sudo systemctl restart nagios-nrpe-server
+```
+
+En el servidor Nagios: `check_nrpe -H <NAS> -c check_raid`.

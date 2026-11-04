@@ -154,3 +154,19 @@ with `apt` removes the file automatically.
 (`DeviceShutdown`) or to reset the whole board (`MCUReset`). The SoC's own software reset leaves the board
 hung, so the kernel must not reboot by itself. While a RAID rebuilds, Cockpit blocks the normal shutdown:
 use `systemctl start poweroff.target` or `systemctl start reboot.target`.
+
+## Monitoring the RAIDs with Nagios
+
+`debian/check_md_raid` is a Nagios check that reads `/proc/mdstat`: OK when every RAID is complete,
+WARNING while one is syncing or rebuilding, CRITICAL if one is degraded without a rebuild, has a failed disk or
+is inactive. On the NAS, with NRPE:
+
+```sh
+sudo apt install nagios-nrpe-server
+sudo install -m 755 check_md_raid /usr/local/lib/nagios/check_md_raid
+echo 'command[check_raid]=/usr/local/lib/nagios/check_md_raid' | sudo tee /etc/nagios/nrpe.d/dns340l.cfg
+# in /etc/nagios/nrpe.cfg: allowed_hosts=127.0.0.1,<Nagios server IP>
+sudo systemctl restart nagios-nrpe-server
+```
+
+On the Nagios server: `check_nrpe -H <NAS> -c check_raid`.
