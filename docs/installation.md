@@ -163,7 +163,7 @@ is inactive. On the NAS, with NRPE:
 
 ```sh
 sudo apt install nagios-nrpe-server
-sudo install -m 755 check_md_raid /usr/local/lib/nagios/check_md_raid
+sudo install -D -m 755 check_md_raid /usr/local/lib/nagios/check_md_raid
 echo 'command[check_raid]=/usr/local/lib/nagios/check_md_raid' | sudo tee /etc/nagios/nrpe.d/dns340l.cfg
 # in /etc/nagios/nrpe.cfg: allowed_hosts=127.0.0.1,<Nagios server IP>
 sudo systemctl restart nagios-nrpe-server

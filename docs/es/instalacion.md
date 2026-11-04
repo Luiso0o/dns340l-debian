@@ -166,7 +166,7 @@ reconstrucción, tiene un disco fallido o está inactivo. En el NAS, con NRPE:
 
 ```sh
 sudo apt install nagios-nrpe-server
-sudo install -m 755 check_md_raid /usr/local/lib/nagios/check_md_raid
+sudo install -D -m 755 check_md_raid /usr/local/lib/nagios/check_md_raid
 echo 'command[check_raid]=/usr/local/lib/nagios/check_md_raid' | sudo tee /etc/nagios/nrpe.d/dns340l.cfg
 # en /etc/nagios/nrpe.cfg: allowed_hosts=127.0.0.1,<IP del servidor Nagios>
 sudo systemctl restart nagios-nrpe-server
