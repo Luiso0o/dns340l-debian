@@ -69,6 +69,10 @@ Configuración de la placa `RD-88F6710_ALpha_DNS340L` en U-Boot y en el núcleo 
   Los LED de las bahías (blanco = disco bien, naranja parpadeando = actividad, naranja fijo = fallo,
   según el manual de D-Link) los maneja la controladora SATA.
 * **USB 3.0 delantero**: funciona a 5 Gbps con el núcleo de Debian arrancado con kexec (no necesita GPIO).
+* **Luces del conector RJ45**: las maneja el PHY (página 3, registro 16). Linux pone `0x1177`, con la que la
+  luz de actividad solo se enciende con enlace a 100 Mbps, así que a 1 Gbps no se encendía nunca. El árbol de
+  dispositivos pone `0x1140` con `marvell,reg-init` (LED0 = enlace, LED1 = parpadea con el tráfico). Probado
+  en el equipo 2.
 * Valor alto en GPIO 4 (banco 0) y GPIO 65 (banco 2) en ambos casos.
 * **Firmware de D-Link en marcha** (segundo equipo, leído con `devmem`): MPP idéntico al anterior;
   salidas GPIO 47–59 (`0xf1018144` = `0xF0007FFF`), con valor alto en **47–51** y bajo en 52–59

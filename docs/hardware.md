@@ -75,6 +75,9 @@ noted):
 
   The bay LEDs (white = disk OK, blinking orange = activity, steady orange = failure, according to D-Link's
   manual) are driven by the SATA controller.
+* **RJ45 LEDs**: driven by the PHY (page 3, register 16). Linux sets `0x1177`, where the activity LED only
+  lights with a 100 Mbps link, so it never lit at 1 Gbps. The device tree sets `0x1140` with
+  `marvell,reg-init` (LED0 = link, LED1 = blinks with traffic). Tested on unit 2.
 * High value on GPIO 4 (bank 0) and GPIO 65 (bank 2) in both cases.
 * **D-Link firmware running** (second unit, read with `devmem`): same MPP as above; outputs GPIO 47–59
   (`0xf1018144` = `0xF0007FFF`), high on **47–51** and low on 52–59 (`0xf1018140` = `0x800F8000`); banks 0

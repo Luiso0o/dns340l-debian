@@ -158,12 +158,19 @@
 &mdio {
 	status = "okay";
 
+	/*
+	 * Luces del conector RJ45 (página 3, registro 16 del PHY): Linux pone 0x1177 (LED1 solo con enlace a
+	 * 100 Mbps, así que la luz de actividad no se encendía nunca a 1 Gbps). 0x1140: LED0 = enlace,
+	 * LED1 = parpadeo con el tráfico. Probado en el equipo 2 (4-11-2026).
+	 */
 	phy0: ethernet-phy@0 {
 		reg = <0>;
+		marvell,reg-init = <3 16 0 0x1140>;
 	};
 
 	phy1: ethernet-phy@1 {
 		reg = <1>;
+		marvell,reg-init = <3 16 0 0x1140>;
 	};
 };
 
