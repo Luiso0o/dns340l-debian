@@ -1,0 +1,76 @@
+#!/bin/sh
+# Comprobación de Nagios (NRPE) del estado SMART de los discos SATA del DNS-340L.
+#
+#   CRITICAL  salud SMART distinta de PASSED, sectores pendientes (197),
+#             sectores ilegibles (198) o temperatura >= 55 °C
+#   WARNING   sectores sustituidos (5), errores no corregibles (187),
+#             reintentos de arranque del motor (10), errores de cable (199)
+#             o temperatura >= 50 °C
+#   UNKNOWN   no hay discos o no se puede leer SMART
+#
+# smartctl necesita root: NRPE (usuario nagios) lo ejecuta con sudo, limitado a
+#   nagios ALL=(root) NOPASSWD: /usr/sbin/smartctl -H -A -i /dev/sd?
+# Uso: check_smart_discos [disco...]   (por defecto, todos los /dev/sd?)
+
+SMARTCTL=${SMARTCTL:-/usr/sbin/smartctl}
+SUDO=${SUDO:-sudo -n}
+
+if [ $# -eq 0 ]; then
+	set -- $(ls /dev/sd? 2>/dev/null)
+fi
+if [ $# -eq 0 ]; then
+	echo "UNKNOWN - no se encuentra ningún disco /dev/sd?"
+	exit 3
+fi
+
+criticos=""; avisos=""; desconocidos=""; correctos=""; rendimiento=""
+
+for d in "$@"; do
+	n=${d##*/}
+	r=$($SUDO $SMARTCTL -H -A -i "$d" 2>&1 | awk -v n="$n" '
+		/^Serial [Nn]umber:/        { serie = $3 }
+		/overall-health|Health Status/ { salud = $NF }
+		$1 ~ /^[0-9]+$/ && NF >= 10 { v[$1] = $10 + 0 }
+		END {
+			if (salud == "") { print "U " n ": no se puede leer SMART T"; exit }
+			c = ""; w = ""
+			if (salud != "PASSED" && salud != "OK") c = c " salud=" salud
+			if (v[197] > 0) c = c " pendientes=" v[197]
+			if (v[198] > 0) c = c " ilegibles=" v[198]
+			if (v[194] >= 55) c = c " temperatura=" v[194] "C"
+			if (v[5]   > 0) w = w " sustituidos=" v[5]
+			if (v[187] > 0) w = w " no_corregibles=" v[187]
+			if (v[10]  > 0) w = w " reintentos_motor=" v[10]
+			if (v[199] > 0) w = w " errores_cable=" v[199]
+			if (v[194] >= 50 && v[194] < 55) w = w " temperatura=" v[194] "C"
+			t = (194 in v) ? v[194] : ""
+			if (c != "")      print "C " n " (" serie "):" c w " T" t
+			else if (w != "") print "W " n " (" serie "):" w " T" t
+			else if (t == "")  print "O " n " T"
+			else              print "O " n " " t "C T" t
+		}')
+	nivel=${r%% *}
+	resto=${r#* }
+	temp=${resto##* T}
+	resto=${resto% T*}
+	[ -n "$temp" ] && rendimiento="$rendimiento ${n}_temp=$temp;50;55"
+	case $nivel in
+		C) criticos="$criticos; $resto" ;;
+		W) avisos="$avisos; $resto" ;;
+		O) correctos="$correctos, $resto" ;;
+		*) desconocidos="$desconocidos; $resto" ;;
+	esac
+done
+
+texto=""
+for parte in "$criticos" "$avisos" "$desconocidos"; do
+	[ -n "$parte" ] && texto="$texto; ${parte#; }"
+done
+[ -n "$correctos" ] && texto="$texto; correctos: ${correctos#, }"
+texto=${texto#; }
+
+if   [ -n "$criticos" ];     then echo "CRITICAL - $texto |$rendimiento"; exit 2
+elif [ -n "$desconocidos" ]; then echo "UNKNOWN - $texto |$rendimiento";  exit 3
+elif [ -n "$avisos" ];       then echo "WARNING - $texto |$rendimiento";  exit 1
+else                              echo "OK - $texto |$rendimiento";       exit 0
+fi

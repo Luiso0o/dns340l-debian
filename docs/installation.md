@@ -170,3 +170,22 @@ sudo systemctl restart nagios-nrpe-server
 ```
 
 On the Nagios server: `check_nrpe -H <NAS> -c check_raid`.
+
+### Disk health (SMART)
+
+`debian/check_smart_discos` reads SMART from each disk: CRITICAL if the health is not `PASSED`, there are pending
+(197) or unreadable (198) sectors, or the temperature reaches 55 °C; WARNING if there are reallocated sectors (5),
+uncorrectable errors (187), spin retries (10), cable errors (199) or 50 °C. `smartctl` needs root, so NRPE runs
+it with `sudo`, limited to that command:
+
+```sh
+sudo install -m 755 check_smart_discos /usr/local/lib/nagios/check_smart_discos
+echo 'nagios ALL=(root) NOPASSWD: /usr/sbin/smartctl -H -A -i /dev/sd?' | sudo tee /etc/sudoers.d/nagios-smart
+sudo chmod 440 /etc/sudoers.d/nagios-smart && sudo visudo -c
+echo 'command[check_smart]=/usr/local/lib/nagios/check_smart_discos' | sudo tee -a /etc/nagios/nrpe.d/dns340l.cfg
+sudo systemctl restart nagios-nrpe-server
+sudo -u nagios /usr/local/lib/nagios/check_smart_discos
+```
+
+`smartd` self-tests (short every day at 03:00, long on the 1st of each month at 04:00): in `/etc/smartd.conf`,
+add `-s (S/../.././03|L/../01/./04)` to the `DEVICESCAN` line and run `sudo systemctl restart smartmontools`.
