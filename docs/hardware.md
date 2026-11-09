@@ -13,7 +13,7 @@ with Linux 6.12.
 | Memory | 512 MiB DDR3 (SK hynix) |
 | Flash | Hynix 256 MiB NAND (ID `0xad 0xda`), 2 KiB pages, 128 KiB blocks, 4-bit BCH ECC |
 | Internal registers | `0xf1000000` (as U-Boot leaves them) |
-| SATA | **Marvell 88SE9215** (PCIe `1b4b:9215`), AHCI, 4 ports at 6 Gbps → the 4 bays. A plain controller: the RAID is done in software |
+| SATA | **Marvell 88SE9215** (PCIe `1b4b:9215`), AHCI, 4 ports at 6 Gbps → the 4 bays (SATA port n = bay n; port 3 = bay 3 tested on unit 1). A plain controller: the RAID is done in software. The `sdX` letters do **not** follow the ports and change between boots: identify disks by serial number (`lsblk -o NAME,SERIAL`, `/dev/disk/by-path/…-ata-N`) |
 | Armada internal SATA | 2 ports (`sata_mv`), not connected |
 | USB 3.0 | **Etron EJ168** (PCIe `1b6f:7023`) → blue front port. Works at 5 Gbps with Debian's kernel started with kexec; when booting directly from U-Boot it stays in D3cold |
 | USB 2.0 | Internal controllers `f1050000` (bus 1) and `f1051000` (bus 2) → the two rear ports |

@@ -150,6 +150,24 @@ más reciente, su initramfs y el árbol de dispositivos a `/boot/dns340l/`, guar
 Para volver a probar el núcleo actual: `sudo rm /boot/dns340l/intento` (o desde el rescate). Al instalar un
 núcleo nuevo con `apt`, el fichero se borra solo.
 
+## Cambiar un disco
+
+Probado en el equipo 1 (disco con sectores pendientes). Arrancar con un RAID degradado (3 de 4 discos) funciona: el
+arranque de la flash y el initramfs de Debian lo ensamblan y Debian arranca con normalidad.
+
+```sh
+cat /proc/mdstat; lsblk -o NAME,SIZE,MODEL,SERIAL     # los nombres de los RAID y las letras sdX cambian: míralos antes
+sudo mdadm /dev/mdX --fail /dev/sdY1 --remove /dev/sdY1   # en cada RAID, con su partición del disco viejo
+sudo systemctl start poweroff.target                       # cambia el disco (comprueba el S/N de la etiqueta)
+sudo apt install fdisk                                     # tras arrancar: sfdisk viene en este paquete
+sudo sfdisk -d /dev/sdBUENO | grep -v -e '^label-id' -e '^last-lba' | sed 's/, *uuid=[0-9A-Fa-f-]*//' > /tmp/tabla.txt
+sudo sfdisk /dev/sdNUEVO < /tmp/tabla.txt                  # mismas particiones, identificadores nuevos
+sudo mdadm /dev/mdX --add /dev/sdNUEVO1                    # en cada RAID, con la partición que le toca
+```
+
+Usa un disco CMR de al menos el mismo tamaño (no SMR: muy lento al reconstruir). Los UUID de los RAID no cambian,
+así que no hay que tocar `mdadm.conf` ni el initramfs. La reconstrucción tarda unas 10–13 horas con discos de 4 TB.
+
 ## Apagado y reinicio
 
 `poweroff` y `reboot` funcionan con normalidad: un script de apagado de systemd pide al microcontrolador que

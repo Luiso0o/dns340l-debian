@@ -148,6 +148,24 @@ Before each jump the flash boot program writes which kernel it tries (`actual` o
 To retry the current kernel: `sudo rm /boot/dns340l/intento` (or from rescue mode). Installing a new kernel
 with `apt` removes the file automatically.
 
+## Replacing a disk
+
+Tested on unit 1 (failing disk with pending sectors). Booting with a degraded RAID (3 of 4 disks) works: the flash
+boot program and Debian's initramfs assemble it and Debian starts normally.
+
+```sh
+cat /proc/mdstat; lsblk -o NAME,SIZE,MODEL,SERIAL     # RAID names and sdX letters change: check them first
+sudo mdadm /dev/mdX --fail /dev/sdY1 --remove /dev/sdY1   # for each RAID, with its partition of the old disk
+sudo systemctl start poweroff.target                       # swap the disk (check the serial on its label)
+sudo apt install fdisk                                     # after booting: sfdisk is in this package
+sudo sfdisk -d /dev/sdOK | grep -v -e '^label-id' -e '^last-lba' | sed 's/, *uuid=[0-9A-Fa-f-]*//' > /tmp/tabla.txt
+sudo sfdisk /dev/sdNEW < /tmp/tabla.txt                    # same partitions, new identifiers
+sudo mdadm /dev/mdX --add /dev/sdNEW1                      # for each RAID, with the matching partition
+```
+
+Use a CMR disk of at least the same size (not SMR: very slow rebuilding). The RAID UUIDs do not change, so
+`mdadm.conf` and the initramfs need no update. The rebuild takes about 10–13 hours with 4 TB disks.
+
 ## Power off and reboot
 
 `poweroff` and `reboot` work normally: a systemd shutdown script tells the microcontroller to cut the power

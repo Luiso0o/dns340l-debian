@@ -12,7 +12,7 @@ Datos obtenidos del firmware 1.08b01 (`dmesg`, `lspci`, `/proc/mtd`), del U-Boot
 | Memoria | 512 MiB DDR3 (SK hynix) |
 | Flash | NAND Hynix 256 MiB (ID `0xad 0xda`), página 2 KiB, bloque 128 KiB, ECC BCH 4 bits |
 | Registros internos | `0xf1000000` (así los deja U-Boot) |
-| SATA | **Marvell 88SE9215** (PCIe `1b4b:9215`), AHCI, 4 puertos a 6 Gbps → las 4 bahías |
+| SATA | **Marvell 88SE9215** (PCIe `1b4b:9215`), AHCI, 4 puertos a 6 Gbps → las 4 bahías (puerto SATA n = bahía n; puerto 3 = bahía 3 probado en el equipo 1). Controladora simple: el RAID es por software. Las letras `sdX` **no** siguen el orden de los puertos y cambian entre arranques: identifica los discos por el número de serie (`lsblk -o NAME,SERIAL`, `/dev/disk/by-path/…-ata-N`) |
 | SATA interno del Armada | 2 puertos (`sata_mv`), sin conectar |
 | USB 3.0 | **Etron EJ168** (PCIe `1b6f:7023`) → puerto delantero azul. Funciona a 5 Gbps con el núcleo de Debian arrancado con kexec; arrancando directamente desde U-Boot queda en D3cold |
 | USB 2.0 | Controladores internos `f1050000` (bus 1) y `f1051000` (bus 2) → los dos puertos traseros |
